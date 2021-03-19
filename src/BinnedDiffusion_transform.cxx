@@ -124,8 +124,8 @@ GenKokkos::BinnedDiffusion_transform::BinnedDiffusion_transform(const Pimpos& pi
     , m_outside_pitch(0)
     , m_outside_time(0)
 {
-    Kokkos::realloc(m_patch, MAX_PATCH_SIZE*MAX_PATCHES);
-    Kokkos::realloc(m_ptvecs, MAX_NPSS_DEVICE+MAX_NTSS_DEVICE);
+    //Kokkos::realloc(m_patch, MAX_PATCH_SIZE*MAX_PATCHES);
+    //Kokkos::realloc(m_ptvecs, MAX_NPSS_DEVICE+MAX_NTSS_DEVICE);
     m_ptvecs_h = (void*)malloc((MAX_NPSS_DEVICE+MAX_NTSS_DEVICE)*sizeof(double)) ;
     m_pvecs_h = (double*)malloc((MAX_NPSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
     m_tvecs_h = (double*)malloc((MAX_NTSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
