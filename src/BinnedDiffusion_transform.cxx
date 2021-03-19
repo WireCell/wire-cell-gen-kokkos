@@ -536,16 +536,16 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
   Kokkos::View<unsigned long*, Kokkos::HostSpace> patch_idx_v_h(&m_patch_idx_h[0],npatches+1) ;
   Kokkos::View<float* , Kokkos::HostSpace> patches_v_h(&m_patch_h[0], m_patch_idx_h[npatches] ) ;
 
-  Kokkos::View<double*> sum_p_v("PatchSum", npatches) ;
+  Kokkos::View<double*> sum_p_v(Kokkos::ViewAllocateWithoutInitializing("PatchSum"), npatches) ;
 
   //Device Views
-  Kokkos::View<unsigned long * > p_idx("P_idx:" , npatches+1) ;
-  Kokkos::View<unsigned long * > t_idx("T_idx:" , npatches+1) ;
-  Kokkos::View<unsigned long * > patch_idx("Pat_idx:" , npatches+1) ;
-  Kokkos::View<float * > patch_d("Patches:" , m_patch_idx_h[npatches]) ;
-  Kokkos::View<double * > pvecs_d("Pvecs:" , m_p_idx_h[npatches]) ;
-  Kokkos::View<double * > tvecs_d("Tvecs:" , m_t_idx_h[npatches]) ;
-  Kokkos::View<double * > charges_d("Charges:" , npatches) ;
+  Kokkos::View<unsigned long * > p_idx(Kokkos::ViewAllocateWithoutInitializing("P_idx") , npatches+1) ;
+  Kokkos::View<unsigned long * > t_idx(Kokkos::ViewAllocateWithoutInitializing("T_idx") , npatches+1) ;
+  Kokkos::View<unsigned long * > patch_idx(Kokkos::ViewAllocateWithoutInitializing("Pat_idx") , npatches+1) ;
+  Kokkos::View<float * > patch_d(Kokkos::ViewAllocateWithoutInitializing("Patches") , m_patch_idx_h[npatches]) ;
+  Kokkos::View<double * > pvecs_d(Kokkos::ViewAllocateWithoutInitializing("Pvecs") , m_p_idx_h[npatches]) ;
+  Kokkos::View<double * > tvecs_d(Kokkos::ViewAllocateWithoutInitializing("Tvecs") , m_t_idx_h[npatches]) ;
+  Kokkos::View<double * > charges_d(Kokkos::ViewAllocateWithoutInitializing("Charges") , npatches) ;
 
 
   auto normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)m_patch_idx_h[npatches] ) ) ;
