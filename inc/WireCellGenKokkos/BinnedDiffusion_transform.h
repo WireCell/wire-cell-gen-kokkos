@@ -130,7 +130,7 @@ namespace WireCell {
 	    std::map<int, GenKokkos::ImpactData::mutable_pointer> m_impacts;
             //std::vector<std::shared_ptr<GaussianDiffusion> > m_diffs;
 	    //std::set<std::shared_ptr<GaussianDiffusion>, GausDiffTimeCompare> m_diffs;
-	    std::set<std::shared_ptr<GaussianDiffusion> > m_diffs;
+	    std::vector<std::shared_ptr<GaussianDiffusion> > m_diffs;
 
             int m_outside_pitch;
             int m_outside_time;
