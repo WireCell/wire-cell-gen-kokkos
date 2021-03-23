@@ -113,7 +113,7 @@ namespace WireCell {
 
 	    double get_nsigma() const {return m_nsigma;};
 
-	    void set_sampling_bat( const unsigned long npatch) ;
+	    void set_sampling_bat( const unsigned long npatch, int patch_size) ;
 	    
 	private:
 	    

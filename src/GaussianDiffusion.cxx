@@ -529,6 +529,7 @@ void GenKokkos::GaussianDiffusion::set_sampling(
 
 void GenKokkos::GaussianDiffusion::set_sampling_pre(
 					        const int diff_idx ,
+						int & patch_size ,
                                                 double* p_vecs,
                                                 double* t_vecs,
                                                 double* charges, 
@@ -584,6 +585,7 @@ void GenKokkos::GaussianDiffusion::set_sampling_pre(
         return;
     }
 
+    patch_size = ntss*npss ;
 
     // make charge weights for later interpolation.
     /// fixme: for hanyu.

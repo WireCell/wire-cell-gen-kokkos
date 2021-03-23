@@ -127,6 +127,7 @@ namespace WireCell {
                               unsigned int weightstrat = 1/*see BinnedDiffusion ImpactDataCalculationStrategy*/);
             void set_sampling_pre(
                               const int counter,
+			      int & patch_size ,
                               double* pvecs,
                               double* tvecs,
                               double* charges,
