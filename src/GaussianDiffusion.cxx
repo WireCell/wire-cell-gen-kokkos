@@ -133,7 +133,6 @@ struct kokkos_sampling_functor {
     //*/
 
 
-
 };
 
 
@@ -381,9 +380,9 @@ void GenKokkos::GaussianDiffusion::set_sampling(const Binning& tbin, // overall 
 void GenKokkos::GaussianDiffusion::set_sampling(
                                                 //Kokkos::DualView<double[MAX_NPSS_DEVICE]>& pvec_V,
                                                 //Kokkos::DualView<double[MAX_NTSS_DEVICE]>& tvec_V,
-                                                Kokkos::DualView<float*>& patch_V,
-                                                Kokkos::DualView<double*>& normals,
-                                                Kokkos::DualView<double*>& ptvecs,
+                                                Kokkos::View<float*>& patch_V,
+                                                Kokkos::View<double*>& normals,
+                                                Kokkos::View<double*>& ptvecs,
                                                 double* ptvecs_h,
                                                 const Binning& tbin, // overall time tick binning
                                                 const Binning& pbin, // overall impact position binning
@@ -462,13 +461,13 @@ void GenKokkos::GaussianDiffusion::set_sampling(
     memcpy(ptvecs_h, &pvec[0], npss * sizeof(double));
     memcpy(&ptvecs_h[npss], &tvec[0], ntss * sizeof(double));
     auto ptv_h = Kokkos::View<double*>( ptvecs_h, ntss+npss  ) ;
-    auto ptv_d = Kokkos::subview(ptvecs.d_view, std::make_pair(0, int(ntss+npss)) ) ;
+    auto ptv_d = Kokkos::subview(ptvecs, std::make_pair(0, int(ntss+npss)) ) ;
 
     Kokkos::deep_copy(ptv_d, ptv_h) ;
 
     
     //Kokkos::DualView<float*> patch("patch", npss*ntss);
-    kokkos_patching_functor functor(ptv_d, npss, ntss, patch_V.d_view, charge);
+    kokkos_patching_functor functor(ptv_d, npss, ntss, patch_V, charge);
     //using MDPolicyType_2D = typename Kokkos::Experimental::MDRangePolicy< Kokkos::Experimental::Rank<2> >;
     //MDPolicyType_2D mdpolicy_2d({{0, 0}}, {{(long int)npss, (long int)ntss}});
 
@@ -495,7 +494,7 @@ void GenKokkos::GaussianDiffusion::set_sampling(
     if(fluctuate) {
 
         //kokkos_patching_functor functor(patch.d_view,  charge, charge_sign);
-        kokkos_sampling_functor sampler(npss, patch_V.d_view, normals.d_view, charge, charge_sign, sum);
+        kokkos_sampling_functor sampler(npss, patch_V, normals, charge, charge_sign, sum);
         //using MDPolicyType_2D = typename Kokkos::Experimental::MDRangePolicy< Kokkos::Experimental::Rank<2> >;
         //MDPolicyType_2D mdpolicy_2d({{0, 0}}, {{npss, ntss}});
 
@@ -512,7 +511,7 @@ void GenKokkos::GaussianDiffusion::set_sampling(
         }
     }
      View<float*> pt_h(m_patch.data(),ntss*npss) ;
-    auto pt_d = Kokkos::subview(patch_V.d_view, std::make_pair( (size_t)0,(size_t)(ntss*npss))) ;
+    auto pt_d = Kokkos::subview(patch_V, std::make_pair( (size_t)0,(size_t)(ntss*npss))) ;
     //auto pt_d = Kokkos::subview(patch_V.d_view, make_pair( 1,500)) ;
 
 
@@ -526,6 +525,92 @@ void GenKokkos::GaussianDiffusion::set_sampling(
     g_set_sampling_part3 += wend - wstart;
 
 
+}
+
+void GenKokkos::GaussianDiffusion::set_sampling_pre(
+					        const int diff_idx ,
+                                                double* p_vecs,
+                                                double* t_vecs,
+                                                double* charges, 
+                                                unsigned long* p_idx,
+                                                unsigned long * t_idx,
+                                                unsigned long * patch_idx,
+                                                const Binning& tbin, // overall time tick binning
+                                                const Binning& pbin, // overall impact position binning
+                                                double nsigma,
+                                                IRandom::pointer fluctuate,
+                                                unsigned int weightstrat)
+{
+    if (m_patch.size() > 0) {
+        cerr << "GenKokkos::GaussianDiffusion: patch size= 0 , diff number:" << diff_idx << "\n";
+        p_idx[diff_idx+1] =p_idx[diff_idx] ;
+        t_idx[diff_idx+1] =t_idx[diff_idx] ;
+        patch_idx[diff_idx+1] =patch_idx[diff_idx] ;
+        return;
+    }
+
+    double wstart, wend;
+
+
+    wstart = omp_get_wtime();
+    /// Sample time dimension
+    auto tval_range = m_time_desc.sigma_range(nsigma);
+    auto tbin_range = tbin.sample_bin_range(tval_range.first, tval_range.second);
+    const size_t ntss = tbin_range.second - tbin_range.first;
+    m_toffset_bin = tbin_range.first;
+    auto tvec =  m_time_desc.binint(tbin.edge(m_toffset_bin), tbin.binsize(), ntss);
+
+    if (!ntss) {
+        cerr << "GenKokkos::GaussianDiffusion: no time bins for [" << tval_range.first/units::us << "," << tval_range.second/units::us << "] us\n";
+        p_idx[diff_idx+1] =p_idx[diff_idx] ;
+        t_idx[diff_idx+1] =t_idx[diff_idx] ;
+        patch_idx[diff_idx+1] =patch_idx[diff_idx] ;
+        return;
+    }
+
+    /// Sample pitch dimension.
+    auto pval_range = m_pitch_desc.sigma_range(nsigma);
+    auto pbin_range = pbin.sample_bin_range(pval_range.first, pval_range.second);
+    const size_t npss = pbin_range.second - pbin_range.first;
+    m_poffset_bin = pbin_range.first;
+    auto pvec = m_pitch_desc.binint(pbin.edge(m_poffset_bin), pbin.binsize(), npss);
+    
+
+    if (!npss) {
+        cerr << "No impact bins [" << pval_range.first/units::mm << "," << pval_range.second/units::mm << "] mm\n";
+        p_idx[diff_idx+1] =p_idx[diff_idx] ;
+        t_idx[diff_idx+1] =t_idx[diff_idx] ;
+        patch_idx[diff_idx+1] =patch_idx[diff_idx] ;
+        return;
+    }
+
+
+    // make charge weights for later interpolation.
+    /// fixme: for hanyu.
+    if(weightstrat == 2){
+        auto wvec = m_pitch_desc.weight(pbin.edge(m_poffset_bin), pbin.binsize(), npss, pvec);
+        m_qweights = wvec;
+    }
+    if(weightstrat == 1){
+        m_qweights.resize(npss, 0.5);
+    }
+    wend = omp_get_wtime();
+    g_set_sampling_part1 += wend - wstart;
+
+    m_patch = patch_t::Zero(npss, ntss);
+
+
+    wstart = omp_get_wtime();
+   
+    memcpy(&p_vecs[p_idx[diff_idx]], &pvec[0], npss * sizeof(double));
+    memcpy(&t_vecs[t_idx[diff_idx]], &tvec[0], ntss * sizeof(double));
+    charges[diff_idx]=m_deposition->charge() ;
+    p_idx[diff_idx+1] =npss+p_idx[diff_idx] ;
+    t_idx[diff_idx+1] =ntss+t_idx[diff_idx] ;
+    patch_idx[diff_idx+1] =npss*ntss+patch_idx[diff_idx] ;
+
+    wend = omp_get_wtime();
+    g_set_sampling_part2 += wend - wstart;
 }
 
 void GenKokkos::GaussianDiffusion::clear_sampling(){

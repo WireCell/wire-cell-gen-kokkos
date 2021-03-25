@@ -112,6 +112,8 @@ namespace WireCell {
             std::pair<int,int> time_bin_range(double nsigma=0.0) const;
 
 	    double get_nsigma() const {return m_nsigma;};
+
+	    void set_sampling_bat( const unsigned long npatch) ;
 	    
 	private:
 	    
@@ -141,10 +143,24 @@ namespace WireCell {
 
             //Kokkos::DualView<double[MAX_NPSS_DEVICE]> m_pvec;
             //Kokkos::DualView<double[MAX_NTSS_DEVICE]> m_tvec;
-            Kokkos::DualView<float*> m_patch;
-            Kokkos::DualView<double*> m_normals;
+            Kokkos::View<float*> m_patch;
+            Kokkos::View<double*> m_normals;
             Kokkos::DualView<double*> m_ptvecs;
+	    //for batch
+            Kokkos::View<double*> m_pvecs;
+            Kokkos::View<double*> m_tvecs;
+            Kokkos::View<double*> m_charges;
+            Kokkos::View<unsigned long *> m_t_idx;
+            Kokkos::View<unsigned long *> m_p_idx;
+            Kokkos::View<unsigned long *> m_patch_idx;
 	    void* m_ptvecs_h ;
+	    double* m_pvecs_h ;
+	    double* m_tvecs_h ;
+	    double* m_charges_h ;
+	    float * m_patch_h ;
+	    unsigned long * m_t_idx_h;
+	    unsigned long * m_p_idx_h ;
+	    unsigned long * m_patch_idx_h;
 	    
 
         private:

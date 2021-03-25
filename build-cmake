@@ -7,21 +7,19 @@ then
 fi
 
 top_dir="$(cd $(dirname ${BASH_SOURCE[0]}) >&/dev/null && pwd)"
-cmake_dir_cxx=$top_dir/.cmake-cxx
 cmake_dir_kokkos=$top_dir/.cmake-kokkos
-build_dir_cxx=$top_dir/build/cxx
 build_dir_kokkos=$top_dir/build/kokkos
-mkdir -p $build_dir_cxx $build_dir_kokkos
+mkdir -p  $build_dir_kokkos
 
-src_rn_dir=$cmake_dir_kokkos/src
-mkdir -p $src_rn_dir
+#src_rn_dir=$cmake_dir_kokkos/src
+#mkdir -p $src_rn_dir
 
-cd $top_dir/src
-cp *.cxx ${src_rn_dir}
-for file in *.kokkos
-do
-  cp  $file ${src_rn_dir}/$(basename "$file" .kokkos).kokkos.cxx
-done
+#cd $top_dir/src
+#cp *.cxx ${src_rn_dir}
+#for file in *.kokkos
+#do
+#  cp  $file ${src_rn_dir}/$(basename "$file" .kokkos).kokkos.cxx
+#done
 
 
 build_cmds="$@"

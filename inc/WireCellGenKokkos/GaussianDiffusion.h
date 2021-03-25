@@ -117,10 +117,22 @@ namespace WireCell {
             void set_sampling(
                               //Kokkos::DualView<double[MAX_NPSS_DEVICE]>& pvec,
                               //Kokkos::DualView<double[MAX_NTSS_DEVICE]>& tvec,
-                              Kokkos::DualView<float*>& patch,
-                              Kokkos::DualView<double*>& normals,
-                              Kokkos::DualView<double*>& ptvecs,
+                              Kokkos::View<float*>& patch,
+                              Kokkos::View<double*>& normals,
+                              Kokkos::View<double*>& ptvecs,
                               double* ptvecs_h,
+                              const Binning& tbin, const Binning& pbin,
+                              double nsigma = 3.0, 
+                              IRandom::pointer fluctuate=nullptr, 
+                              unsigned int weightstrat = 1/*see BinnedDiffusion ImpactDataCalculationStrategy*/);
+            void set_sampling_pre(
+                              const int counter,
+                              double* pvecs,
+                              double* tvecs,
+                              double* charges,
+			      unsigned long * p_idx,
+			      unsigned long * t_idx,
+			      unsigned long * patch_idx,
                               const Binning& tbin, const Binning& pbin,
                               double nsigma = 3.0, 
                               IRandom::pointer fluctuate=nullptr, 
@@ -141,6 +153,7 @@ namespace WireCell {
 	    /// N_time columns.  Index as patch(i_pitch, i_time).
 	    /// Call set_sampling() first.
 	    const patch_t& patch() const;
+	    patch_t& get_patch() {return m_patch ;} ;
 
             const std::vector<double> weights() const;
 
