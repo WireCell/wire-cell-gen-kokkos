@@ -551,8 +551,9 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
   Kokkos::View<double * > tvecs_d(Kokkos::ViewAllocateWithoutInitializing("Tvecs") , m_t_idx_h[npatches]) ;
   Kokkos::View<double * > charges_d(Kokkos::ViewAllocateWithoutInitializing("Charges") , npatches) ;
 
-
+  //existing view, make a subview
   auto normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)m_patch_idx_h[npatches] ) ) ;
+
   //Copy of views 
   Kokkos::deep_copy(p_idx, p_idx_v_h) ;
   Kokkos::deep_copy(t_idx, t_idx_v_h) ;
@@ -563,110 +564,61 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
 
   bool fl = false ;
   if( m_fluctuate) fl = true    ;
-  //kernels
 
-  bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
-  std::cout<<"Is_host: " << is_host <<std::endl ;
+    std::cout<<"Max Patch size : " << max_patch_size <<std::endl ;
 
-  if(is_host) {   //if not use GPU 
-    Kokkos::parallel_for("Patch", npatches,
-       KOKKOS_LAMBDA( int p ){
-       int np=p_idx(p+1)-p_idx(p) ;
-       int nt=t_idx(p+1)-t_idx(p) ;
-       int patch_size=np*nt ;
-       double sum_p=0.0 ;
-       for (int ii=0 ; ii<patch_size ; ii++) {
-            double value=pvecs_d(p_idx(p)+ii%np)*tvecs_d(t_idx(p)+ii/np);
-            patch_d(patch_idx(p)+ii)=(float)value ;
-            sum_p +=value ;
-       }
-       sum_p_v(p) =sum_p ;
-
-        } ) ;
-
-    if(! m_fluctuate){
-        Kokkos::parallel_for("Norm1", npatches , KOKKOS_LAMBDA(int p) {
-              float factor= abs(charges_d(p))/sum_p_v(p) ;
-              for (unsigned long  ii=patch_idx(p) ; ii< patch_idx(p+1) ; ii++) {
-                  patch_d(ii) *= factor ;
-              }
-        }) ;
-    } else {
-        Kokkos::parallel_for("Set_Sample", npatches , KOKKOS_LAMBDA(int i) {
-               double charge=abs(charges_d(i)) ;
-               int n=(int) charge;
-               double sum_p =0 ;
-
-               float factor= abs(charges_d(i))/sum_p_v(i) ;
-               for (unsigned long  ii=patch_idx(i) ; ii< patch_idx(i+1) ; ii++) {
-                   patch_d(ii) *= factor ;
-                   double p = patch_d(ii)/charge ;
-                   double q = 1-p ;
-                   double mu = n*p ;
-                   double sigma = sqrt(p*q*n) ;
-                   double value = normals(ii)*sigma + mu ;
-                   patch_d(ii) = value ;
-                  sum_p += value ;
-               }
-
-              for (unsigned long  ii=patch_idx(i) ; ii< patch_idx(i+1) ; ii++) {
-                   patch_d(ii) *= (charge/sum_p) ;
-              }
-
-        } ) ;
-    }
-  } else {  // use GPU/cuda
-    int blocksize= 1 ;
-    while (blocksize <max_patch_size) blocksize*=2 ;
-
-    std::cout<<"Max Patch size : " << max_patch_size << " Block size: "<< blocksize <<std::endl ;
-    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,blocksize) ;
+  //kernel
+    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
     Kokkos::parallel_for( policy, 
       KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
        int ip=team.league_rank() ;
-       int ii=team.team_rank() ;
-       
+      
        int np=p_idx(ip+1)-p_idx(ip) ;
        int nt=t_idx(ip+1)-t_idx(ip) ;
        int patch_size=np*nt ;
-       double value = 0.0 ;
-       double p = 0.0 ;
+       unsigned long p0 =patch_idx(ip) ;
 
-       if(ii<patch_size ){ 
-          value = pvecs_d(p_idx(ip)+ii%np)*tvecs_d(t_idx(ip)+ii/np) ;
-       }
-       double s = team.team_scan(value, &sum_p_v(ip));
+       double sum = 0.0 ;
+
+       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+         [=] (int & ii, double & lsum ) { 
+            double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
+	    patch_d(ii+p0) = (float) v ;
+	    lsum += v ;
+         }, sum ) ;
+
 
        double charge=charges_d(ip) ;
        double charge_abs = abs(charge) ;
 //       int charge_sign = charge < 0  ? -1 :1 ;
 
-       value *= charge_abs/sum_p_v(ip) ;
+       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+	 [=] ( int & ii ) {
+           patch_d(ii+p0) *= float(charge_abs/sum) ;
+	 } ) ;
        
        if( fl ){
-       
-	   int n=(int) charge_abs;
-	   unsigned long p0 =patch_idx(ip) ;
-	   //unsigned long p1 =patch_idx(ip+1) ;
+	 int n=(int) charge_abs;
+         sum =0.0  ;
 
-	   if( ii < patch_size  ) { 
-               p =  value/charge_abs ;
+         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+           [=] (int & ii, double & lsum ) { 
+               double p =  patch_d(ii+p0)/charge_abs ;
                double q = 1-p ;
                double mu = n*p ;
                double sigma = sqrt(p*q*n) ;
                p = normals(ii+p0)*sigma + mu ;
-           }          
-           double s = team.team_scan(p , &sum_p_v(ip));
-            
-	   p *= charge_abs/sum_p_v(ip) ;
+	       lsum += p ;
+               }, sum ) ;
 
-	   if( ii < patch_size )  
-		patch_d(ii+p0) = p ;
+         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+	   [=] ( int & ii ) {
+             patch_d(ii+p0) *= (float) charge_abs/sum ;
+	   } ) ;
 
        }
 
     } ) ;
-  }
  
   Kokkos::deep_copy(patches_v_h, patch_d ) ;
 
