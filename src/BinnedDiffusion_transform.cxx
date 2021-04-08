@@ -16,6 +16,7 @@
 
 
 #define MAX_PATCH_SIZE 1024
+#define P_BLOCK_SIZE  512
 #define MAX_PATCHES 200000
 #define MAX_NPSS_DEVICE 1000
 #define MAX_NTSS_DEVICE 1000
@@ -124,8 +125,8 @@ GenKokkos::BinnedDiffusion_transform::BinnedDiffusion_transform(const Pimpos& pi
     , m_outside_pitch(0)
     , m_outside_time(0)
 {
-    Kokkos::realloc(m_patch, MAX_PATCH_SIZE*MAX_PATCHES);
-    Kokkos::realloc(m_ptvecs, MAX_NPSS_DEVICE+MAX_NTSS_DEVICE);
+    //Kokkos::realloc(m_patch, MAX_PATCH_SIZE*MAX_PATCHES);
+    //Kokkos::realloc(m_ptvecs, MAX_NPSS_DEVICE+MAX_NTSS_DEVICE);
     m_ptvecs_h = (void*)malloc((MAX_NPSS_DEVICE+MAX_NTSS_DEVICE)*sizeof(double)) ;
     m_pvecs_h = (double*)malloc((MAX_NPSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
     m_tvecs_h = (double*)malloc((MAX_NTSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
@@ -237,7 +238,7 @@ bool GenKokkos::BinnedDiffusion_transform::add(IDepo::pointer depo, double sigma
     //   //   if (bin == bin_beg)  m_diffs.insert(gd);
     //   this->add(gd, bin);
     // }
-    m_diffs.insert(gd);
+    m_diffs.push_back(gd);
     return true;
 }
 
@@ -423,6 +424,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   m_t_idx_h[0]=0 ;
   m_p_idx_h[0]=0 ;
   m_patch_idx_h[0]=0 ;
+  int max_patch_size = 0 ;
+  int patch_size =0 ;
   for (auto diff : m_diffs){
     if(diff->depo()->charge()==0) continue;
     wstart2 = omp_get_wtime();
@@ -431,17 +434,18 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     #else
     //diff->set_sampling(m_pvec, m_tvec, m_patch, m_normals, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
     //diff->set_sampling(m_patch, m_normals, m_ptvecs, (double*)m_ptvecs_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    diff->set_sampling_pre(counter,m_pvecs_h,m_tvecs_h,m_charges_h,m_p_idx_h,m_t_idx_h,m_patch_idx_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
+    diff->set_sampling_pre(counter,patch_size,m_pvecs_h,m_tvecs_h,m_charges_h,m_p_idx_h,m_t_idx_h,m_patch_idx_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
     //diff->set_sampling(m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
     #endif
     wend2 = omp_get_wtime();
     g_get_charge_vec_time_part4 += wend2 - wstart2;
     counter ++;
+    max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size ;
   }
   wend = omp_get_wtime();
   cout << "get_charge_vec() : get_charge_vec() set_sampling_pre() time " << wend- wstart<< endl;
 
-  set_sampling_bat( counter) ;
+  set_sampling_bat( counter, max_patch_size) ;
   wstart = omp_get_wtime();
   cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart-wend<< endl;
 
@@ -525,7 +529,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 #endif
 }
 
-void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches) {
+void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches, int max_patch_size) {
 
   //create hostview from pointers
   Kokkos::View<double*, Kokkos::HostSpace> pvecs_v_h(m_pvecs_h,m_p_idx_h[npatches]);
@@ -536,19 +540,20 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
   Kokkos::View<unsigned long*, Kokkos::HostSpace> patch_idx_v_h(&m_patch_idx_h[0],npatches+1) ;
   Kokkos::View<float* , Kokkos::HostSpace> patches_v_h(&m_patch_h[0], m_patch_idx_h[npatches] ) ;
 
-  Kokkos::View<double*> sum_p_v("PatchSum", npatches) ;
+  Kokkos::View<double*> sum_p_v(Kokkos::ViewAllocateWithoutInitializing("PatchSum"), npatches) ;
 
   //Device Views
-  Kokkos::View<unsigned long * > p_idx("P_idx:" , npatches+1) ;
-  Kokkos::View<unsigned long * > t_idx("T_idx:" , npatches+1) ;
-  Kokkos::View<unsigned long * > patch_idx("Pat_idx:" , npatches+1) ;
-  Kokkos::View<float * > patch_d("Patches:" , m_patch_idx_h[npatches]) ;
-  Kokkos::View<double * > pvecs_d("Pvecs:" , m_p_idx_h[npatches]) ;
-  Kokkos::View<double * > tvecs_d("Tvecs:" , m_t_idx_h[npatches]) ;
-  Kokkos::View<double * > charges_d("Charges:" , npatches) ;
+  Kokkos::View<unsigned long * > p_idx(Kokkos::ViewAllocateWithoutInitializing("P_idx") , npatches+1) ;
+  Kokkos::View<unsigned long * > t_idx(Kokkos::ViewAllocateWithoutInitializing("T_idx") , npatches+1) ;
+  Kokkos::View<unsigned long * > patch_idx(Kokkos::ViewAllocateWithoutInitializing("Pat_idx") , npatches+1) ;
+  Kokkos::View<float * > patch_d(Kokkos::ViewAllocateWithoutInitializing("Patches") , m_patch_idx_h[npatches]) ;
+  Kokkos::View<double * > pvecs_d(Kokkos::ViewAllocateWithoutInitializing("Pvecs") , m_p_idx_h[npatches]) ;
+  Kokkos::View<double * > tvecs_d(Kokkos::ViewAllocateWithoutInitializing("Tvecs") , m_t_idx_h[npatches]) ;
+  Kokkos::View<double * > charges_d(Kokkos::ViewAllocateWithoutInitializing("Charges") , npatches) ;
 
-
+  //existing view, make a subview
   auto normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)m_patch_idx_h[npatches] ) ) ;
+
   //Copy of views 
   Kokkos::deep_copy(p_idx, p_idx_v_h) ;
   Kokkos::deep_copy(t_idx, t_idx_v_h) ;
@@ -557,57 +562,66 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
   Kokkos::deep_copy(tvecs_d, tvecs_v_h) ;
   Kokkos::deep_copy(charges_d, charges_v_h) ;
 
- Kokkos::fence() ;
-  //kernels
-  Kokkos::parallel_for("Patch", npatches, 
-       KOKKOS_LAMBDA( int p ){
-       int np=p_idx(p+1)-p_idx(p) ;
-       int nt=t_idx(p+1)-t_idx(p) ;
+  bool fl = false ;
+  if( m_fluctuate) fl = true    ;
+
+    std::cout<<"Max Patch size : " << max_patch_size <<std::endl ;
+
+  //kernel
+    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
+    Kokkos::parallel_for( policy, 
+      KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
+       int ip=team.league_rank() ;
+      
+       int np=p_idx(ip+1)-p_idx(ip) ;
+       int nt=t_idx(ip+1)-t_idx(ip) ;
        int patch_size=np*nt ;
-       double sum_p=0.0 ;
-       for (int ii=0 ; ii<patch_size ; ii++) {
-            double value=pvecs_d(p_idx(p)+ii%np)*tvecs_d(t_idx(p)+ii/np);
-	    patch_d(patch_idx(p)+ii)=(float)value ;
-            sum_p +=value ;
+       unsigned long p0 =patch_idx(ip) ;
+
+       double sum = 0.0 ;
+
+       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+         [=] (int & ii, double & lsum ) { 
+            double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
+	    patch_d(ii+p0) = (float) v ;
+	    lsum += v ;
+         }, sum ) ;
+
+
+       double charge=charges_d(ip) ;
+       double charge_abs = abs(charge) ;
+//       int charge_sign = charge < 0  ? -1 :1 ;
+
+       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+	 [=] ( int & ii ) {
+           patch_d(ii+p0) *= float(charge_abs/sum) ;
+	 } ) ;
+       
+       if( fl ){
+	 int n=(int) charge_abs;
+         sum =0.0  ;
+
+         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+           [=] (int & ii, double & lsum ) { 
+               double p =  patch_d(ii+p0)/charge_abs ;
+               double q = 1-p ;
+               double mu = n*p ;
+               double sigma = sqrt(p*q*n) ;
+               p = normals(ii+p0)*sigma + mu ;
+	       lsum += p ;
+               }, sum ) ;
+
+         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+	   [=] ( int & ii ) {
+             patch_d(ii+p0) *= (float) charge_abs/sum ;
+	   } ) ;
+
        }
-       sum_p_v(p) =sum_p ;
 
-	} ) ;
-
-  if(! m_fluctuate){
-	Kokkos::parallel_for("Norm1", npatches , KOKKOS_LAMBDA(int p) {
-              float factor= abs(charges_d(p))/sum_p_v(p) ;
-              for (unsigned long  ii=patch_idx(p) ; ii< patch_idx(p+1) ; ii++) {
-	          patch_d(ii) *= factor ;
-              }
-	}) ;
-  } else { 
-	Kokkos::parallel_for("Set_Sample", npatches , KOKKOS_LAMBDA(int i) {
-               double charge=abs(charges_d(i)) ;
-	       int n=(int) charge;
-               double sum_p =0 ;
-
-               float factor= abs(charges_d(i))/sum_p_v(i) ;
-               for (unsigned long  ii=patch_idx(i) ; ii< patch_idx(i+1) ; ii++) {
-	           patch_d(ii) *= factor ;
-                   double p = patch_d(ii)/charge ;
-                   double q = 1-p ;
-                   double mu = n*p ;
-                   double sigma = sqrt(p*q*n) ;
-                   double value = normals(ii)*sigma + mu ;
-                   patch_d(ii) = value ;
-                  sum_p += value ;
-               }          
-         
-              for (unsigned long  ii=patch_idx(i) ; ii< patch_idx(i+1) ; ii++) {
-                   patch_d(ii) *= (charge/sum_p) ;
-              }
-
-        } ) ;
-  }
+    } ) ;
  
-
   Kokkos::deep_copy(patches_v_h, patch_d ) ;
+
 
 }
 // GenKokkos::ImpactData::pointer GenKokkos::BinnedDiffusion_transform::impact_data(int bin) const
