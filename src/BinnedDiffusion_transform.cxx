@@ -569,6 +569,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
 
   bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
 
+  //is_host =  ;
   //kernel
     Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
   if(is_host) {
@@ -677,6 +678,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
   }  
  
   Kokkos::deep_copy(patches_v_h, patch_d ) ;
+//  for(int n=0; n<100 ; n++) std::cout<<patches_v_h(n)<<std::endl ; 
 
 
 }

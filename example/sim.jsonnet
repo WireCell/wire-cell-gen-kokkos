@@ -119,7 +119,7 @@ local hio_truth = [g.pnode({
         filename: "g4-tru-%d.h5" % n,
         chunk: [0, 0], // ncol, nrow
         gzip: 2,
-        high_throughput: true,
+        high_throughput: false,
       },  
     }, nin=1, nout=1),
     for n in std.range(0, std.length(tools.anodes) - 1)
@@ -143,7 +143,7 @@ local hio_orig = [g.pnode({
         filename: "g4-rec-%d.h5" % n,
         chunk: [0, 0], // ncol, nrow
         gzip: 2,
-        high_throughput: true,
+        high_throughput: false,
       },  
     }, nin=1, nout=1),
     for n in std.range(0, std.length(tools.anodes) - 1)
@@ -159,7 +159,7 @@ local hio_sp = [g.pnode({
         filename: "g4-rec-%d.h5" % n,
         chunk: [0, 0], // ncol, nrow
         gzip: 2,
-        high_throughput: true,
+        high_throughput: false,
       },  
     }, nin=1, nout=1),
     for n in std.range(0, std.length(tools.anodes) - 1)
