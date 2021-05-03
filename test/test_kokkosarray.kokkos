@@ -1,12 +1,14 @@
 #include "WireCellGenKokkos/KokkosArray.h"
 
 #include <iostream>
+#include <typeinfo>
 
 using namespace WireCell::KokkosArray;
 int main(int argc, char *argv[])
 {
     Kokkos::initialize(argc, argv);
     {
+        std::cout << "Space: " << typeid(Space).name() << std::endl;
         array_xxf A = gen_2d_view<array_xxf>(2,3,1.5);
         array_xxc B = dft_rc(A);
         array_xxf C = idft_cr(B);
