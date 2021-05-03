@@ -1,4 +1,6 @@
 /**
+ * Similar like the WireCell::Array with Eigen backend,
+ * this KokkosArray provides interface for FFTs.
  */
 
 #ifndef WIRECELL_KOKKOSARRAY
@@ -24,6 +26,7 @@ namespace WireCell {
         /// A complex, 2D array
         typedef Kokkos::View<Kokkos::complex<Scalar>**, Layout, Space> array_xxc;
 
+        /// Generate a 2D view initialized with given value.
         template <class ViewType>
         inline ViewType gen_2d_view(const Index N0, const Index N1, const Scalar val = 0)
         {
@@ -34,6 +37,7 @@ namespace WireCell {
             return ret;
         }
 
+        /// Dump out a string for pinting for a 2D view.
         template <class ViewType>
         inline std::string dump_2d_view(const ViewType& A, const Index length_limit = 20)
         {
@@ -73,6 +77,10 @@ namespace WireCell {
             return ss.str();
         }
 
+        /**
+         * Below are 4 functions for for the FFT operations.
+         * The actual operation is just a placeholder, adding "1" for debugging purpose.
+         */
         inline array_xxc dft_rc(const array_xxf& arr, int dim = 0)
         {
             Index N0 = arr.extent(0);
