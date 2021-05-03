@@ -1,0 +1,20 @@
+#include "WireCellGenKokkos/KokkosArray.h"
+
+#include <iostream>
+
+using namespace WireCell::KokkosArray;
+int main(int argc, char *argv[])
+{
+    Kokkos::initialize(argc, argv);
+    {
+        array_xxf A = gen_2d_view<array_xxf>(2,3,1.5);
+        array_xxc B = dft_rc(A);
+        array_xxf C = idft_cr(B);
+        std::cout
+        << dump_2d_view(A)
+        << dump_2d_view(B)
+        << dump_2d_view(C);
+    }
+    Kokkos::finalize();
+    return 0;
+}
