@@ -8,7 +8,13 @@ fi
 
 top_dir="$(cd $(dirname ${BASH_SOURCE[0]}) >&/dev/null && pwd)"
 cmake_dir_kokkos=$top_dir/.cmake-kokkos
-build_dir_kokkos=$top_dir/build/kokkos
+
+if [ -z ${WC_GEN_KK_BUILD} ] ; then
+	build_dir_kokkos=$top_dir/build/kokkos
+else
+	build_dir_kokkos=${WC_GEN_KK_BUILD}
+fi
+
 mkdir -p  $build_dir_kokkos
 
 #src_rn_dir=$cmake_dir_kokkos/src

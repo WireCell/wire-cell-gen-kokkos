@@ -448,6 +448,9 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   set_sampling_bat( counter, max_patch_size) ;
   wstart = omp_get_wtime();
   cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart-wend<< endl;
+//  std::cout<<"debug: patch values: "<<m_diffs.size() << " "<< m_patch_idx_h[m_diffs.size()] <<std::endl ;
+// for( long int jj=0 ; jj<m_patch_idx_h[m_diffs.size()] ; jj++ )
+// 	  std::cout<<"PatchValues: "<<m_patch_h[jj] << std::endl ;
 
 
   int idx=0 ;
@@ -569,7 +572,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
 
   bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
 
-  //is_host =  ;
+  is_host = false   ;
   //kernel
     Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
   if(is_host) {

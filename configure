@@ -4,7 +4,11 @@ INSTALL=$2
 KOKKOS_INC=$KOKKOS_PATH/include
 KOKKOS_LIB=$KOKKOS_PATH/lib64
 
-./wcb configure --prefix=$INSTALL \
+[ -z ${WC_GEN_KK_SRC} ] && export WC_GEN_KK_SRC=$PWD
+
+${WC_GEN_KK_SRC}/wcb configure --prefix=$INSTALL \
+--out="$WC_GEN_KK_BUILD" \
+--top="$WC_GEN_KK_SRC" \
 --with-tbb="$TBBROOT" \
 --with-jsoncpp="$JSONCPP_FQ_DIR" \
 --with-jsonnet="$JSONNET_FQ_DIR" \
