@@ -18,7 +18,7 @@ namespace WireCell {
         using Scalar = float;
         using Index = int;
         using Layout = Kokkos::LayoutLeft;
-        using Space = Kokkos::CudaSpace;
+        using Space = Kokkos::DefaultExecutionSpace;
 
         /// A real, 2D array
         typedef Kokkos::View<Scalar**, Layout, Space> array_xxf;
