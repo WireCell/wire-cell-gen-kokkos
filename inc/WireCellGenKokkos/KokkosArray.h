@@ -36,6 +36,11 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = val; });
             return ret;
         }
+        template <class ViewType>
+        inline ViewType Zero(const Index N0, const Index N1)
+        {
+            return gen_2d_view<ViewType>(N0, N1, 0);
+        }
 
         /// Dump out a string for pinting for a 2D view.
         template <class ViewType>
@@ -92,7 +97,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        array_xxc dft_cc(const array_xxc& arr, int dim = 1)
+        inline array_xxc dft_cc(const array_xxc& arr, int dim = 1)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
@@ -103,7 +108,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        array_xxc idft_cc(const array_xxc& arr, int dim = 1)
+        static array_xxc idft_cc(const array_xxc& arr, int dim = 1)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
@@ -114,7 +119,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        array_xxf idft_cr(const array_xxc& arr, int dim = 0)
+        static array_xxf idft_cr(const array_xxc& arr, int dim = 0)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
