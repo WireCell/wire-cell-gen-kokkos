@@ -7,8 +7,10 @@
 #include "WireCellIface/IDepo.h"
 
 #include "WireCellGenKokkos/ImpactData.h"
+#include "WireCellGenKokkos/KokkosArray.h"
 
 #include <deque>
+#include <tuple>
 #include <Eigen/Sparse>
 
 #include "config.h"
@@ -93,6 +95,10 @@ namespace WireCell {
 	    // test ... 
 	    void get_charge_vec(std::vector<std::vector<std::tuple<int,int, double> > >& vec_vec_charge, std::vector<int>& vec_impact);
 	    void get_charge_matrix(std::vector<Eigen::SparseMatrix<float>* >& vec_spmatrix, std::vector<int>& vec_impact);
+        void get_charge_matrix_kokkos(KokkosArray::array_xxf& out,
+        std::vector<int>& vec_impact,
+        const int start_pitch,
+        const int start_tick);
 	    
 	    
             /// Return the range of pitch containing depos out to
@@ -113,7 +119,8 @@ namespace WireCell {
 
 	    double get_nsigma() const {return m_nsigma;};
 
-	    void set_sampling_bat( const unsigned long npatch, int patch_size) ;
+	    std::tuple< Kokkos::View<float*>, Kokkos::View<unsigned long*> >
+        set_sampling_bat( const unsigned long npatch, int patch_size) ;
 	    
 	private:
 	    

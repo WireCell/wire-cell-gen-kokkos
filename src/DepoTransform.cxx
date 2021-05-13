@@ -199,6 +199,7 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
 
             auto pir = m_pirs.at(iplane);
             GenKokkos::ImpactTransform transform(pir, bindiff);
+            transform.transform_kokkos();
 
             const int nwires = pimpos->region_binning().nbins();
             for (int iwire = 0; iwire < nwires; ++iwire) {
