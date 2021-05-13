@@ -11,6 +11,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <string>
+#include <typeinfo>
 
 namespace WireCell {
 
@@ -47,7 +48,7 @@ namespace WireCell {
         inline std::string dump_2d_view(const ViewType& A, const Index length_limit = 20)
         {
             std::stringstream ss;
-            ss << "dump_2d_view: \n";
+            ss << typeid(ViewType).name() << ":\n";
 
             auto h_A = Kokkos::create_mirror_view(A);
             Kokkos::deep_copy(h_A, A);
@@ -79,6 +80,19 @@ namespace WireCell {
                 ss << std::endl;
             }
 
+            bool all_zero = true;
+            for (Index i = 0; i < N0 && all_zero == true; ++i) {
+                for (Index j = 0; j < N1 && all_zero == true; ++j) {
+                    if (h_A(i, j) != 0) {
+                        all_zero = false;
+                        break;
+                    }
+                }
+            }
+            if (all_zero) {
+                ss << "All Zero!\n";
+            }
+
             return ss.str();
         }
 
@@ -108,7 +122,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        static array_xxc idft_cc(const array_xxc& arr, int dim = 1)
+        inline array_xxc idft_cc(const array_xxc& arr, int dim = 1)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
@@ -116,10 +130,10 @@ namespace WireCell {
             // TODO place holder for now, implement a real one!
             Kokkos::parallel_for("idft_cc",
                                  Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
+                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)-1; });
             return ret;
         }
-        static array_xxf idft_cr(const array_xxc& arr, int dim = 0)
+        inline array_xxf idft_cr(const array_xxc& arr, int dim = 0)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
@@ -127,7 +141,7 @@ namespace WireCell {
             // TODO place holder for now, implement a real one!
             Kokkos::parallel_for("idft_cr",
                                  Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = Kokkos::real(arr(i0, i1))+1; });
+                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = Kokkos::real(arr(i0, i1))-1; });
             return ret;
         }
 
