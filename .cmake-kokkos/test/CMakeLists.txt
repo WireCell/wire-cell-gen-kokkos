@@ -12,7 +12,7 @@ foreach(source_file IN LISTS all_execs)
   set(renamed_source_file ${CMAKE_CURRENT_BINARY_DIR}/${exec_name}.cpp)
   configure_file("${source_dir}/${source_file}" ${renamed_source_file} COPYONLY)
   add_executable(${exec_name} ${renamed_source_file})
-  target_link_libraries(${exec_name} PRIVATE Kokkos::kokkos)
+  target_link_libraries(${exec_name} PRIVATE Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
   target_include_directories(${exec_name}
     PRIVATE
       ${PROJECT_SOURCE_DIR}/../inc
