@@ -6,14 +6,7 @@
 #ifndef WIRECELL_KOKKOSARRAY_CUDA
 #define WIRECELL_KOKKOSARRAY_CUDA
 
-#include "WireCellUtil/Waveform.h"
-
-#include <Kokkos_Core.hpp>
-
 #include <cufft.h>
-
-#include <string>
-#include <typeinfo>
 
 namespace WireCell {
 

@@ -6,13 +6,6 @@
 #ifndef WIRECELL_KOKKOSARRAY_DUMMY
 #define WIRECELL_KOKKOSARRAY_DUMMY
 
-#include "WireCellUtil/Waveform.h"
-
-#include <Kokkos_Core.hpp>
-
-#include <string>
-#include <typeinfo>
-
 namespace WireCell {
 
     namespace KokkosArray {
