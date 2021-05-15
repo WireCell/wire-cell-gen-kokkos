@@ -42,6 +42,7 @@ namespace WireCell {
             double m_drift_speed;
             double m_nsigma;
             int m_frame_count;
+            std::string m_transform;
             Log::logptr_t l;
         };
     }  // namespace GenKokkos

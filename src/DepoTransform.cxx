@@ -59,6 +59,7 @@ GenKokkos::DepoTransform::DepoTransform()
   , m_drift_speed(1.0 * units::mm / units::us)
   , m_nsigma(3.0)
   , m_frame_count(0)
+  , m_transform("transform_vector")
   , l(Log::logger("sim"))
 {
 }
@@ -96,6 +97,8 @@ void GenKokkos::DepoTransform::configure(const WireCell::Configuration& cfg)
         auto pir = Factory::find_tn<IPlaneImpactResponse>(tn);
         m_pirs.push_back(pir);
     }
+
+    m_transform = get<string>(cfg, "transform", m_transform);
 }
 WireCell::Configuration GenKokkos::DepoTransform::default_configuration() const
 {
@@ -131,6 +134,9 @@ WireCell::Configuration GenKokkos::DepoTransform::default_configuration() const
 
     /// Plane impact responses
     cfg["pirs"] = Json::arrayValue;
+
+    /// Transform function to use
+    put(cfg, "transform", m_transform);
 
     return cfg;
 }
@@ -199,7 +205,13 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
 
             auto pir = m_pirs.at(iplane);
             GenKokkos::ImpactTransform transform(pir, bindiff);
-            transform.transform_kokkos();
+            if(m_transform.compare("transform_vector")==0) {
+                transform.transform_vector();
+            } else if (m_transform.compare("transform_matrix")==0) {
+                transform.transform_matrix();
+            } else {
+                THROW(ValueError() << errmsg{"No transform function named: " + m_transform});
+            }
 
             const int nwires = pimpos->region_binning().nbins();
             for (int iwire = 0; iwire < nwires; ++iwire) {

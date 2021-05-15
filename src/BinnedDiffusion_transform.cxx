@@ -296,7 +296,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     }
     wend = omp_get_wtime();
     g_get_charge_vec_time_part1 += wend - wstart;
-    cout << "get_charge_vec() : get_charge_vec() part1 running time : " << g_get_charge_vec_time_part1 << endl;
+    cout << "get_charge_matrix_kokkos(): part1 running time : " << g_get_charge_vec_time_part1 << endl;
 
     wstart = omp_get_wtime();
     const auto rb = m_pimpos.region_binning();
@@ -321,7 +321,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
 
     wend = omp_get_wtime();
     g_get_charge_vec_time_part2 += wend - wstart;
-    cout << "get_charge_vec() : get_charge_vec() part2 running time : " << g_get_charge_vec_time_part2 << endl;
+    cout << "get_charge_matrix_kokkos(): part2 running time : " << g_get_charge_vec_time_part2 << endl;
 
     wstart = omp_get_wtime();
     m_t_idx_h[0] = 0;
@@ -345,7 +345,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size;
     }
     wend = omp_get_wtime();
-    cout << "get_charge_vec() : get_charge_vec() set_sampling_pre() time " << wend - wstart << endl;
+    cout << "get_charge_matrix_kokkos(): set_sampling_pre() time " << wend - wstart << endl;
 
     auto patch_info = set_sampling_bat(counter, max_patch_size);
     auto patch_d = std::get<0>(patch_info);
@@ -353,7 +353,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
     wstart = omp_get_wtime();
-    cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart - wend << endl;
+    cout << "get_charge_matrix_kokkos(): set_sampling_bat() time " << wstart - wend << endl;
 
     int min_np = 100;
     int min_nt = 100;
@@ -412,22 +412,22 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
             float v = patch_d(idx);
             Kokkos::atomic_add(&out(p+i, t+j), v);
         });
-    std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
+    // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
     wend = omp_get_wtime();
     g_get_charge_vec_time_part3 += wend - wstart;
-    cout << "get_charge_vec() : get_charge_vec() part3 running time : " << g_get_charge_vec_time_part3 << endl;
-    cout << "get_charge_vec() : set_sampling() running time : " << g_get_charge_vec_time_part4
+    cout << "get_charge_matrix_kokkos(): get_charge_matrix_kokkos() part3 running time : " << g_get_charge_vec_time_part3 << endl;
+    cout << "get_charge_matrix_kokkos(): set_sampling() running time : " << g_get_charge_vec_time_part4
          << ", counter : " << counter << endl;
-    cout << "get_charge_vec() : m_fluctuate : " << m_fluctuate << endl;
+    cout << "get_charge_matrix_kokkos() : m_fluctuate : " << m_fluctuate << endl;
 
 #ifdef HAVE_CUDA_INC
-    cout << "get_charge_vec() CUDA : set_sampling() part1 time : " << g_set_sampling_part1
+    cout << "get_charge_matrix_kokkos() CUDA : set_sampling() part1 time : " << g_set_sampling_part1
          << ", part2 (CUDA) time : " << g_set_sampling_part2 << endl;
     cout << "GaussianDiffusion::sampling_CUDA() part3 time : " << g_set_sampling_part3
          << ", part4 time : " << g_set_sampling_part4 << ", part5 time : " << g_set_sampling_part5 << endl;
     cout << "GaussianDiffusion::sampling_CUDA() : g_total_sample_size : " << g_total_sample_size << endl;
 #else
-    cout << "get_charge_vec() : set_sampling() part1 time : " << g_set_sampling_part1
+    cout << "set_sampling(): part1 time : " << g_set_sampling_part1
          << ", part2 time : " << g_set_sampling_part2 << ", part3 time : " << g_set_sampling_part3 << endl;
 #endif
 }
