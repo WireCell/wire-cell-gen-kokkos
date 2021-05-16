@@ -3,6 +3,7 @@ set(all_execs
   test_random.kokkos
   test_cuda.kokkos
   test_kokkosarray.kokkos
+  test_fft.kokkos
 )
 
 set(source_dir ${PROJECT_SOURCE_DIR}/../test)
