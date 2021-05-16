@@ -98,7 +98,6 @@ bool GenKokkos::ImpactTransform::transform_vector()
         }
         m_vec_vec_charge.at(i).clear();
         m_vec_vec_charge.at(i).shrink_to_fit();
-        log->debug("transform_vector: c_data.sum(): {}", c_data.sum());
 
         // fill reverse order
         int ii = num_double * 2 - i;
