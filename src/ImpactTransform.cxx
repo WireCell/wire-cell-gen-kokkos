@@ -98,6 +98,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
         }
         m_vec_vec_charge.at(i).clear();
         m_vec_vec_charge.at(i).shrink_to_fit();
+        log->debug("transform_vector: c_data.sum(): {}", c_data.sum());
 
         // fill reverse order
         int ii = num_double * 2 - i;
@@ -259,9 +260,10 @@ bool GenKokkos::ImpactTransform::transform_vector()
     m_decon_data = real_m_decon_data + img_m_decon_data;
 
     double timer_fft = omp_get_wtime() - wstart;
-    log->debug("ImpactTransform::transform_kokkos() : FFT : {}", timer_fft);
+    log->debug("ImpactTransform::transform_vector: FFT: {}", timer_fft);
 
-    log->debug("ImpactTransform: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
+    log->debug("ImpactTransform::transform_vector: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
+    log->debug("transform_vector: m_decon_data.sum(): {}", m_decon_data.sum());
 
     return true;
 }
@@ -313,7 +315,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     KokkosArray::array_xxf f_data = KokkosArray::Zero<KokkosArray::array_xxf>(end_pitch - start_pitch + 2 * npad_pitch, m_end_tick - m_start_tick);;
     m_bd.get_charge_matrix_kokkos(f_data, m_vec_impact, start_pitch, m_start_tick);
     // Kokkos::fence();
-    // std::cout << KokkosArray::dump_2d_view(f_data, 100);
+    // std::cout << KokkosArray::dump_2d_view(f_data, 10);
     double wend = omp_get_wtime();
     g_get_charge_vec_time += wend - wstart;
     log->debug("ImpactTransform::ImpactTransform() : get_charge_vec() Total running time : {}", g_get_charge_vec_time);
@@ -355,16 +357,16 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     auto acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
 
     auto acc_data_t_w_h = Kokkos::create_mirror_view(acc_data_t_w);
-    // std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,1000000) << std::endl;
-    Kokkos::deep_copy(acc_data_t_w_h, acc_data_t_w_h);
-    Eigen::Map<Eigen::ArrayXXf> acc_data_f_w_eigen((float*) acc_data_t_w_h.data(), acc_data_t_w_h.extent(0), acc_data_t_w_h.extent(1));
-    m_decon_data = acc_data_f_w_eigen; // FIXME: reduce this copy
+    // std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,10) << std::endl;
+    Kokkos::deep_copy(acc_data_t_w_h, acc_data_t_w);
+    Eigen::Map<Eigen::ArrayXXf> acc_data_t_w_eigen((float*) acc_data_t_w_h.data(), acc_data_t_w_h.extent(0), acc_data_t_w_h.extent(1));
+    m_decon_data = acc_data_t_w_eigen; // FIXME: reduce this copy
     
     double timer_fft = omp_get_wtime() - wstart;
-    log->debug("ImpactTransform::transform_kokkos() : FFT : {}", timer_fft);
+    log->debug("ImpactTransform::transform_matrix: FFT: {}", timer_fft);
 
-    log->debug("ImpactTransform: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
-
+    log->debug("ImpactTransform::transform_matrix: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
+    log->debug("ImpactTransform::transform_matrix: m_decon_data.sum(): {}", m_decon_data.sum());
     return true;
 }
 
