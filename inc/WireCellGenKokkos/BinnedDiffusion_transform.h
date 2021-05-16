@@ -120,7 +120,7 @@ namespace WireCell {
 	    double get_nsigma() const {return m_nsigma;};
 
 	    std::tuple< Kokkos::View<float*>, Kokkos::View<unsigned long*> >
-        set_sampling_bat( const unsigned long npatch, int patch_size) ;
+        set_sampling_bat( const unsigned long npatch, int patch_size, const bool copy_DtoH = true) ;
 	    
 	private:
 	    

@@ -347,7 +347,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     wend = omp_get_wtime();
     cout << "get_charge_matrix_kokkos(): set_sampling_pre() time " << wend - wstart << endl;
 
-    auto patch_info = set_sampling_bat(counter, max_patch_size);
+    auto patch_info = set_sampling_bat(counter, max_patch_size, false);
     auto patch_d = std::get<0>(patch_info);
     auto patch_idx = std::get<1>(patch_info);
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
@@ -603,7 +603,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   wend = omp_get_wtime();
   cout << "get_charge_vec() : get_charge_vec() set_sampling_pre() time " << wend- wstart<< endl;
 
-  set_sampling_bat( counter, max_patch_size) ;
+  set_sampling_bat( counter, max_patch_size, true) ;
   wstart = omp_get_wtime();
   cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart-wend<< endl;
 
@@ -688,7 +688,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 }
 
 std::tuple< Kokkos::View<float*>, Kokkos::View<unsigned long*> >
-GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches, int max_patch_size) {
+GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches, int max_patch_size, const bool copy_DtoH) {
 
   //create hostview from pointers
   Kokkos::View<double*, Kokkos::HostSpace> pvecs_v_h(m_pvecs_h,m_p_idx_h[npatches]);
@@ -835,8 +835,7 @@ GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches, i
     } ) ;
 
   }  
- 
-  // Kokkos::deep_copy(patches_v_h, patch_d );
+  if (copy_DtoH==true) Kokkos::deep_copy(patches_v_h, patch_d );
   return {patch_d, patch_idx};
 }
 // GenKokkos::ImpactData::pointer GenKokkos::BinnedDiffusion_transform::impact_data(int bin) const
