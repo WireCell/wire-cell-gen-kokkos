@@ -1,4 +1,5 @@
 #include <Kokkos_Core.hpp>
+#include <Kokkos_ScatterView.hpp>
 
 #include <chrono>
 #include <cstdio>
@@ -13,6 +14,7 @@ using Scalar = float;
 using Index = int;
 using Layout = Kokkos::LayoutLeft;
 using matrix_type = typename Kokkos::View<Scalar **, Layout>;
+using matrix_type_scatter = typename Kokkos::Experimental::ScatterView<Scalar **, Layout>;
 
 matrix_type gen_2D_view(const int N0, const int N1, const Scalar val = 0)
 {
@@ -80,7 +82,7 @@ std::string dump(const matrix_type &A, const size_t length_limit = 20)
 }
 
 double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const int M1 = 5, const int Npatch = 4,
-                   const bool verbose = true, const int wait = 0)
+                   const std::string &alg = "atomic_add", const bool verbose = true)
 {
     matrix_type grid("grid", N0, N1);
 
@@ -108,17 +110,32 @@ double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const
     Kokkos::deep_copy(vec_y, h_vec_y);
 
     Kokkos::Timer timer;
-    Kokkos::parallel_for("ScAdd",
-                         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>>({0, 0, 0}, {Npatch, M0, M1}),
-                         KOKKOS_LAMBDA(const int &p, const int &i, const int &j) {
-                             // auto patch = gen_2D_view(M0, M1, 1);
-                             // std::this_thread::sleep_for(std::chrono::microseconds(wait));
-                             auto x = vec_x[p];
-                             auto y = vec_y[p];
-                             Kokkos::atomic_add(&grid(x + i, y + j), A(i, j));
-                         });
-    Kokkos::fence();
-    double time = timer.seconds();
+    double time = 0;
+    if (alg.compare("atomic_add") == 0) {
+        Kokkos::parallel_for("ScAdd",
+                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>>({0, 0, 0}, {Npatch, M0, M1}),
+                             KOKKOS_LAMBDA(const int &p, const int &i, const int &j) {
+                                 auto x = vec_x[p];
+                                 auto y = vec_y[p];
+                                 Kokkos::atomic_add(&grid(x + i, y + j), A(i, j));
+                             });
+        Kokkos::fence();
+        time += timer.seconds();
+    }
+    if (alg.compare("ScatterView") == 0) {
+        matrix_type_scatter grid_scatter(grid);
+        Kokkos::parallel_for("ScAdd",
+                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>>({0, 0, 0}, {Npatch, M0, M1}),
+                             KOKKOS_LAMBDA(const int &p, const int &i, const int &j) {
+                                 auto x = vec_x[p];
+                                 auto y = vec_y[p];
+                                 auto access = grid_scatter.access();
+                                 access(x + i, y + j) += A(i, j);
+                             });
+        Kokkos::Experimental::contribute(grid, grid_scatter);
+        Kokkos::fence();
+        time += timer.seconds();
+    }
 
     if (verbose) {
         std::cout << "output grid: \n" << dump(grid) << std::endl;
@@ -128,18 +145,19 @@ double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const
         // sum check
         matrix_type::HostMirror h_grid = Kokkos::create_mirror_view(grid);
         Kokkos::deep_copy(h_grid, grid);
-        int N_expect = Npatch * M0 *M1;
+        int N_expect = Npatch * M0 * M1;
         int N_test = 0;
         for (size_t i = 0; i < h_grid.extent(0); ++i) {
             for (size_t j = 0; j < h_grid.extent(1); ++j) {
-                N_test += h_grid(i,j);
+                N_test += h_grid(i, j);
             }
         }
 
         std::cout << "Test:" << N_test << ", expect: " << N_expect << std::endl;
-        if(N_expect == N_test) {
+        if (N_expect == N_test) {
             std::cout << "Sum check OK:" << std::endl;
-        } else {
+        }
+        else {
             std::cout << "Sum check fail." << std::endl;
         }
     }
@@ -165,15 +183,23 @@ int main(int argc, char *argv[])
         verbose = (bool) atoi(argv[3]);
     }
 
-    std::cout << "npatch: " << npatch << " nrep: " << nrep << std::endl;
+    std::cout << "npatch: " << npatch << " nrep: " << nrep << " verbose: " << verbose << std::endl;
     double time = 0;
     Kokkos::initialize(argc, argv);
     {
+        time = 0;
         for (int rep = 0; rep < nrep; ++rep) {
-            time += quick_check(1000, 6000, 15, 30, npatch, verbose);
+            time += quick_check(1000, 6000, 15, 30, npatch, "atomic_add", verbose);
         }
-        std::cout << "Kokkos::Timer: "
-                  << " " << time << std::endl;
+        std::cout << "atomic_add: "
+                  << " " << time/nrep << std::endl;
+
+        time = 0;
+        for (int rep = 0; rep < nrep; ++rep) {
+            time += quick_check(1000, 6000, 15, 30, npatch, "ScatterView", verbose);
+        }
+        std::cout << "ScatterView: "
+                  << " " << time/nrep << std::endl;
     }
     Kokkos::finalize();
 }
