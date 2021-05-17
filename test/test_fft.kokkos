@@ -30,14 +30,14 @@ int main(int argc, char* argv[])
         Kokkos::parallel_for("modify_A",
                              Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
                              KOKKOS_LAMBDA(const Index& i0, const Index& i1) { A(i0, i1) = i0 * 10 + i1; });
-
+#ifdef KOKKOS_ENABLE_CUDA
         if (nstep < 2) break;
         timer.reset();
         cufftHandle plan;
         cufftPlan2d(&plan, 10, 10, CUFFT_R2C);
         cufftDestroy(plan);
         printf("Plan %f ms.\n", timer.seconds()*1000);
-        
+#endif
         if (nstep < 3) break;
         Kokkos::fence();
         timer.reset();
@@ -45,13 +45,16 @@ int main(int argc, char* argv[])
         Kokkos::fence();
         printf("A: init %f ms.\n", timer.seconds()*1000);
         
-        printf("A: %d %d\n", N0, N1);
+        printf("A dims: %d %d\n", N0, N1);
+        float total_time = 0;
         for (int irep = 0; irep < nrep; ++irep) {
             timer.reset();
             dft_rc(A);
             Kokkos::fence();
+            total_time += timer.seconds();
             printf("irep: %d %f ms.\n", irep, timer.seconds()*1000);
         }
+        printf("A: nrep: %d avg: %.2f ms.\n", nrep, total_time/nrep*1000);
         
         if (nstep < 4) break;
         array_xxf B = Zero<array_xxf>(N0*2, N1);
@@ -65,13 +68,16 @@ int main(int argc, char* argv[])
         Kokkos::fence();
         printf("B: init %f ms.\n", timer.seconds()*1000);
 
-        printf("B: %d %d\n", N0*2, N1);
+        printf("B dims: %d %d\n", N0*2, N1);
+        total_time = 0;
         for (int irep = 0; irep < nrep; ++irep) {
             timer.reset();
             dft_rc(B);
             Kokkos::fence();
+            total_time += timer.seconds();
             printf("irep: %d %f ms.\n", irep, timer.seconds()*1000);
         }
+        printf("B: nrep: %d avg: %.2f ms.\n", nrep, total_time/nrep*1000);
 
         break;
     }

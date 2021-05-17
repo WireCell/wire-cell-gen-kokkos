@@ -96,13 +96,51 @@ namespace WireCell {
             return ss.str();
         }
 
+        /// Dump out a string for pinting for a 1D view.
+        template <class ViewType>
+        inline std::string dump_1d_view(const ViewType& A, const Index length_limit = 20)
+        {
+            std::stringstream ss;
+            ss << typeid(ViewType).name() << ":\n";
+
+            auto h_A = Kokkos::create_mirror_view(A);
+            Kokkos::deep_copy(h_A, A);
+
+            Index N0 = A.extent(0);
+            bool print_dot1 = true;
+            for (Index j = 0; j < N0; ++j) {
+                if (j > length_limit && j < N0 - length_limit) {
+                    if (print_dot1) {
+                        ss << "... ";
+                        print_dot1 = false;
+                    }
+                    continue;
+                }
+                ss << h_A(j) << " ";
+            }
+            ss << std::endl;
+
+            bool all_zero = true;
+            for (Index j = 0; j < N0 && all_zero == true; ++j) {
+                if (h_A(j) != 0) {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if (all_zero) {
+                ss << "All Zero!\n";
+            }
+
+            return ss.str();
+        }
+
     }  // namespace KokkosArray
 }  // namespace WireCell
 
 #ifdef KOKKOS_ENABLE_CUDA
 #include "WireCellGenKokkos/KokkosArray_cuda.h"
 #else
-#include "WireCellGenKokkos/KokkosArray_dummy.h"
+#include "WireCellGenKokkos/KokkosArray_fftw.h"
 #endif
 
 #endif

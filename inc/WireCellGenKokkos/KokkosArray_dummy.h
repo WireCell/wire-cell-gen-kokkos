@@ -24,7 +24,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        inline array_xxc dft_cc(const array_xxc& arr, int dim = 1)
+        inline array_xxc dft_cc(const array_xxc& arr, int dim = 0)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
@@ -35,7 +35,7 @@ namespace WireCell {
                                  KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
             return ret;
         }
-        inline array_xxc idft_cc(const array_xxc& arr, int dim = 1)
+        inline array_xxc idft_cc(const array_xxc& arr, int dim = 0)
         {
             Index N0 = arr.extent(0);
             Index N1 = arr.extent(1);
