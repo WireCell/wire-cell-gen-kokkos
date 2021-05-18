@@ -11,7 +11,8 @@ namespace WireCell {
 
     namespace KokkosArray {
         /**
-         * TODO: under developing now
+         * TODO:
+         *  - round trip norm not included yet
          */
         inline array_xxc dft_rc(const array_xxf& in, int dim = 0)
         {
@@ -22,30 +23,21 @@ namespace WireCell {
 
             cufftHandle plan;
 
-            // FIXME: neede to do 1D FFTs
-            // cufftPlan2d(&plan, N0, N1, CUFFT_R2C);
-            // cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
-            // cufftDestroy(plan);
-
-            if (dim==0) {
-                cufftPlan1d(&plan, N1, CUFFT_R2C, 1);
-                for(int i=0; i<N0;++i) {
-                    auto in_sub = Kokkos::subview(in, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    auto out_sub = Kokkos::subview(out, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    // FIXME: raw pointer won't work if subview is with LayoutStride
-                    // https://github.com/kokkos/kokkos/wiki/Subviews#1121-c11-type-deduction
-                    cufftExecR2C(plan, (cufftReal*) in_sub.data(), (cufftComplex*) out_sub.data());
-                }
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_R2C, (int) N0);
+                cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
                 cufftDestroy(plan);
             }
 
-            if (dim==1) {
-                cufftPlan1d(&plan, N0, CUFFT_R2C, 1);
-                for(int i=0; i<N1;++i) {
-                    auto in_sub = Kokkos::subview(in, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    auto out_sub = Kokkos::subview(out, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    cufftExecR2C(plan, (cufftReal*) in_sub.data(), (cufftComplex*) out_sub.data());
-                }
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_R2C, (int) N1);
+                cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
                 cufftDestroy(plan);
             }
 
@@ -56,30 +48,24 @@ namespace WireCell {
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxc>(N0, N1, 0);
-            
+
             cufftHandle plan;
 
-            // cufftPlan2d(&plan, N0, N1, CUFFT_C2C);
-            // cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_FORWARD);
-            // cufftDestroy(plan);
-
-            if (dim==0) {
-                cufftPlan1d(&plan, N1, CUFFT_C2C, 1);
-                for(int i=0; i<N0;++i) {
-                    auto in_sub = Kokkos::subview(in, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    auto out_sub = Kokkos::subview(out, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    cufftExecC2C(plan, (cufftComplex*) in_sub.data(), (cufftComplex*) out_sub.data(), CUFFT_FORWARD);
-                }
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2C, (int) N0);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_FORWARD);
                 cufftDestroy(plan);
             }
 
-            if (dim==1) {
-                cufftPlan1d(&plan, N0, CUFFT_C2C, 1);
-                for(int i=0; i<N1;++i) {
-                    auto in_sub = Kokkos::subview(in, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    auto out_sub = Kokkos::subview(out, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    cufftExecC2C(plan, (cufftComplex*) in_sub.data(), (cufftComplex*) out_sub.data(), CUFFT_FORWARD);
-                }
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2C, (int) N1);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_FORWARD);
                 cufftDestroy(plan);
             }
 
@@ -90,30 +76,24 @@ namespace WireCell {
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxc>(N0, N1, 0);
-            
+
             cufftHandle plan;
 
-            // cufftPlan2d(&plan, N0, N1, CUFFT_C2C);
-            // cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
-            // cufftDestroy(plan);
-
-            if (dim==0) {
-                cufftPlan1d(&plan, N1, CUFFT_C2C, 1);
-                for(int i=0; i<N0;++i) {
-                    auto in_sub = Kokkos::subview(in, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    auto out_sub = Kokkos::subview(out, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    cufftExecC2C(plan, (cufftComplex*) in_sub.data(), (cufftComplex*) out_sub.data(), CUFFT_INVERSE);
-                }
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2C, (int) N0);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
                 cufftDestroy(plan);
             }
 
-            if (dim==1) {
-                cufftPlan1d(&plan, N0, CUFFT_C2C, 1);
-                for(int i=0; i<N1;++i) {
-                    auto in_sub = Kokkos::subview(in, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    auto out_sub = Kokkos::subview(out, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    cufftExecC2C(plan, (cufftComplex*) in_sub.data(), (cufftComplex*) out_sub.data(), CUFFT_INVERSE);
-                }
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2C, (int) N1);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
                 cufftDestroy(plan);
             }
 
@@ -124,30 +104,24 @@ namespace WireCell {
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxf>(N0, N1, 0);
-            
+
             cufftHandle plan;
 
-            // cufftPlan2d(&plan, N0, N1, CUFFT_C2R);
-            // cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
-            // cufftDestroy(plan);
-
-            if (dim==0) {
-                cufftPlan1d(&plan, N1, CUFFT_C2R, 1);
-                for(int i=0; i<N0;++i) {
-                    auto in_sub = Kokkos::subview(in, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    auto out_sub = Kokkos::subview(out, (size_t) i, std::make_pair((size_t) 0, (size_t) N1));
-                    cufftExecC2R(plan, (cufftComplex*) in_sub.data(), (cufftReal*) out_sub.data());
-                }
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2R, (int) N0);
+                cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
                 cufftDestroy(plan);
             }
 
-            if (dim==1) {
-                cufftPlan1d(&plan, N0, CUFFT_C2R, 1);
-                for(int i=0; i<N1;++i) {
-                    auto in_sub = Kokkos::subview(in, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    auto out_sub = Kokkos::subview(out, std::make_pair((size_t) 0, (size_t) N0), (size_t) i);
-                    cufftExecC2R(plan, (cufftComplex*) in_sub.data(), (cufftReal*) out_sub.data());
-                }
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2R, (int) N1);
+                cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
                 cufftDestroy(plan);
             }
 
