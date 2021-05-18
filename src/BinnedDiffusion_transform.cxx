@@ -295,7 +295,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         vec_map_pair_pos.push_back(map_pair_pos);
     }
     wend = omp_get_wtime();
-    g_get_charge_vec_time_part1 += wend - wstart;
+    g_get_charge_vec_time_part1 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part1 running time : " << g_get_charge_vec_time_part1 << endl;
 
     wstart = omp_get_wtime();
@@ -320,7 +320,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     int counter = 0;
 
     wend = omp_get_wtime();
-    g_get_charge_vec_time_part2 += wend - wstart;
+    g_get_charge_vec_time_part2 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part2 running time : " << g_get_charge_vec_time_part2 << endl;
 
     wstart = omp_get_wtime();
@@ -340,7 +340,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                m_patch_idx_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
 #endif
         wend2 = omp_get_wtime();
-        g_get_charge_vec_time_part4 += wend2 - wstart2;
+        g_get_charge_vec_time_part4 = wend2 - wstart2;
         counter++;
         max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size;
     }
@@ -353,7 +353,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
     wstart = omp_get_wtime();
-    cout << "get_charge_matrix_kokkos(): set_sampling_bat() time " << wstart - wend << endl;
+    cout << "get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
 
     int min_np = 100;
     int min_nt = 100;
@@ -414,8 +414,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         });
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
     wend = omp_get_wtime();
-    g_get_charge_vec_time_part3 += wend - wstart;
-    cout << "get_charge_matrix_kokkos(): get_charge_matrix_kokkos() part3 running time : " << g_get_charge_vec_time_part3 << endl;
+    g_get_charge_vec_time_part3 = wend - wstart;
+    cout << "get_charge_matrix_kokkos(): part3 running time : " << g_get_charge_vec_time_part3 << endl;
     cout << "get_charge_matrix_kokkos(): set_sampling() running time : " << g_get_charge_vec_time_part4
          << ", counter : " << counter << endl;
     cout << "get_charge_matrix_kokkos() : m_fluctuate : " << m_fluctuate << endl;
@@ -544,8 +544,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     vec_map_pair_pos.push_back(map_pair_pos);
   }
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part1 += wend - wstart;
-  cout << "get_charge_vec() : get_charge_vec() part1 running time : " << g_get_charge_vec_time_part1 << endl;
+  g_get_charge_vec_time_part1 = wend - wstart;
+  cout << "get_charge_vec() : part1 running time : " << g_get_charge_vec_time_part1 << endl;
 
 
   
@@ -572,8 +572,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   int counter = 0;
 
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part2 += wend - wstart;
-  cout << "get_charge_vec() : get_charge_vec() part2 running time : " << g_get_charge_vec_time_part2 << endl;
+  g_get_charge_vec_time_part2 = wend - wstart;
+  cout << "get_charge_vec() : part2 running time : " << g_get_charge_vec_time_part2 << endl;
   
 
 
@@ -596,16 +596,16 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     //diff->set_sampling(m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
     #endif
     wend2 = omp_get_wtime();
-    g_get_charge_vec_time_part4 += wend2 - wstart2;
+    g_get_charge_vec_time_part4 = wend2 - wstart2;
     counter ++;
     max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size ;
   }
   wend = omp_get_wtime();
-  cout << "get_charge_vec() : get_charge_vec() set_sampling_pre() time " << wend- wstart<< endl;
+  cout << "get_charge_vec() : set_sampling_pre() time " << wend- wstart<< endl;
 
   set_sampling_bat( counter, max_patch_size, true) ;
   wstart = omp_get_wtime();
-  cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart-wend<< endl;
+  cout << "get_charge_vec() : set_sampling_bat() with DtoH time " << wstart-wend<< endl;
 
 
   int idx=0 ;
@@ -673,8 +673,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     diff->clear_sampling();
   }
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part3 += wend - wstart;
-  cout << "get_charge_vec() : get_charge_vec() part3 running time : " << g_get_charge_vec_time_part3 << endl;
+  g_get_charge_vec_time_part3 = wend - wstart;
+  cout << "get_charge_vec() : part3 running time : " << g_get_charge_vec_time_part3 << endl;
   cout << "get_charge_vec() : set_sampling() running time : " << g_get_charge_vec_time_part4 << ", counter : " << counter << endl;
   cout << "get_charge_vec() : m_fluctuate : " << m_fluctuate << endl;
 

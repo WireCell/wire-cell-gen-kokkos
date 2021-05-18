@@ -20,6 +20,7 @@ GenKokkos::ImpactTransform::ImpactTransform(IPlaneImpactResponse::pointer pir, B
 
 bool GenKokkos::ImpactTransform::transform_vector()
 {
+    double timer_transform = omp_get_wtime();
     // arrange the field response (210 in total, pitch_range/impact)
     // number of wires nwires ...
     m_num_group = std::round(m_pir->pitch() / m_pir->impact()) + 1;  // 11
@@ -260,7 +261,9 @@ bool GenKokkos::ImpactTransform::transform_vector()
 
     double timer_fft = omp_get_wtime() - wstart;
     log->debug("ImpactTransform::transform_vector: FFT: {}", timer_fft);
-
+    timer_transform = omp_get_wtime() - timer_transform;
+    log->debug("ImpactTransform::transform_vector: Total: {}", timer_transform);
+    
     log->debug("ImpactTransform::transform_vector: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
     log->debug("transform_vector: m_decon_data.sum(): {}", m_decon_data.sum());
 
@@ -270,6 +273,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
 
 bool GenKokkos::ImpactTransform::transform_matrix()
 {
+    double timer_transform = omp_get_wtime();
     // arrange the field response (210 in total, pitch_range/impact)
     // number of wires nwires ...
     m_num_group = std::round(m_pir->pitch() / m_pir->impact()) + 1;  // 11
@@ -363,6 +367,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     
     double timer_fft = omp_get_wtime() - wstart;
     log->debug("ImpactTransform::transform_matrix: FFT: {}", timer_fft);
+    timer_transform = omp_get_wtime() - timer_transform;
+    log->debug("ImpactTransform::transform_matrix: Total: {}", timer_transform);
 
     log->debug("ImpactTransform::transform_matrix: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
     log->debug("ImpactTransform::transform_matrix: m_decon_data.sum(): {}", m_decon_data.sum());
