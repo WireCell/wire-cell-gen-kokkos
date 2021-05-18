@@ -23,13 +23,14 @@ int main(int argc, char* argv[])
         Kokkos::parallel_for("modify_A",
                              Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
                              KOKKOS_LAMBDA(const Index& i0, const Index& i1) { A(i0, i1) = i0*10+i1; });
-        array_xxc B = dft_rc(A,1);
-        array_xxf C = idft_cr(B,1);
+        array_xxc B = dft_rc(A);
+        array_xxf C = idft_cr(B);
 
         array_xxc D = Zero<array_xxc>(N0, N1);
         D = dft_cc(B);
+        auto E = idft_cc(B);
         std::cout << "A: " << dump_2d_view(A) << "B: " << dump_2d_view(B) << "C: " << dump_2d_view(C)
-                  << "D: " << dump_2d_view(D);
+                  << "D: " << dump_2d_view(D) << "E: " << dump_2d_view(E);
 
         auto h_A = Kokkos::create_mirror_view(A);
         Kokkos::deep_copy(h_A, A);
