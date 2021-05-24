@@ -572,13 +572,14 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
 
   bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
 
-  is_host = false   ;
+ // debug  is_host = false   ;
   //kernel
     Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
   if(is_host) {
     Kokkos::parallel_for( policy,
       KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
        int ip=team.league_rank() ;
+      // if (ip==0) printf(" team size: %d", team.team_size()) ;
 
        int np=p_idx(ip+1)-p_idx(ip) ;
        int nt=t_idx(ip+1)-t_idx(ip) ;
@@ -629,6 +630,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatch
     Kokkos::parallel_for( policy, 
       KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
        int ip=team.league_rank() ;
+     //  if (ip==0) printf(" team size: %d", team.team_size()) ;
       
        int np=p_idx(ip+1)-p_idx(ip) ;
        int nt=t_idx(ip+1)-t_idx(ip) ;
