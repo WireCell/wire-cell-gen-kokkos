@@ -162,6 +162,8 @@ namespace WireCell {
 	    unsigned long * m_p_idx_h ;
 	    unsigned long * m_patch_idx_h;
 	    
+//	    Kokkos::View<GenKokkos:GdData*> m_Gd ;
+
 
         private:
             //#ifdef HAVE_CUDA_INC
