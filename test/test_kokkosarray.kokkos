@@ -10,10 +10,14 @@ using namespace WireCell::KokkosArray;
 
 int main(int argc, char* argv[])
 {
+    int N0 = 2;
+    int N1 = 3;
+
+    if (argc > 1) N0 = atoi(argv[1]);
+    if (argc > 2) N1 = atoi(argv[2]);
+
     Kokkos::initialize(argc, argv);
     {
-        const int N0 = 2;
-        const int N1 = 3;
         std::cout << "Space: " << typeid(Space).name() << std::endl;
         array_xxf A = Zero<array_xxf>(N0, N1);
         Kokkos::parallel_for("modify_A",
@@ -24,14 +28,21 @@ int main(int argc, char* argv[])
 
         array_xxc D = Zero<array_xxc>(N0, N1);
         D = dft_cc(B);
+        auto E = idft_cc(B);
         std::cout << "A: " << dump_2d_view(A) << "B: " << dump_2d_view(B) << "C: " << dump_2d_view(C)
-                  << "D: " << dump_2d_view(D);
+                  << "D: " << dump_2d_view(D) << "E: " << dump_2d_view(E);
 
-        auto h_C = Kokkos::create_mirror_view(C);
-        Kokkos::deep_copy(h_C, C);
+        auto h_A = Kokkos::create_mirror_view(A);
+        Kokkos::deep_copy(h_A, A);
 
-        Eigen::Map<Eigen::ArrayXXf> out((float*) h_C.data(), h_C.extent(0), h_C.extent(1));
-        cout << "Eigen:\n" << out << endl;
+        /// conversion between kokkos and eigen, by default eigen is left (column major)
+        /// https://eigen.tuxfamily.org/dox/group__TopicStorageOrders.html
+        Eigen::Map<Eigen::ArrayXXf> kokkos_to_eigen((float*) h_A.data(), h_A.extent(0), h_A.extent(1));
+        cout << "kokkos_to_eigen:\n" << kokkos_to_eigen << endl;
+        Kokkos::View<float**, Kokkos::LayoutLeft, Kokkos::HostSpace> eigen_to_kokkos_left((float*)kokkos_to_eigen.data(),kokkos_to_eigen.rows(), kokkos_to_eigen.cols());
+        cout << "eigen_to_kokkos_left:\n" << dump_2d_view(eigen_to_kokkos_left) << endl;
+        Kokkos::View<float**, Kokkos::LayoutRight, Kokkos::HostSpace> eigen_to_kokkos_right((float*)kokkos_to_eigen.data(),kokkos_to_eigen.cols(), kokkos_to_eigen.rows());
+        cout << "eigen_to_kokkos_right:\n" << dump_2d_view(eigen_to_kokkos_right) << endl;
 
 
     }

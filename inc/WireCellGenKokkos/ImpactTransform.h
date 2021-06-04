@@ -37,6 +37,10 @@ namespace WireCell {
             ImpactTransform(IPlaneImpactResponse::pointer pir, BinnedDiffusion_transform& bd);
             virtual ~ImpactTransform();
 
+            bool transform_vector();
+
+            bool transform_matrix();
+
             /// Return the wire's waveform.  If the response functions
             /// are just field response (ie, instantaneous current)
             /// then the waveforms are expressed as current integrated

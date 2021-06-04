@@ -96,56 +96,51 @@ namespace WireCell {
             return ss.str();
         }
 
-        /**
-         * Below are 4 functions for for the FFT operations.
-         * The actual operation is just a placeholder, adding "1" for debugging purpose.
-         */
-        inline array_xxc dft_rc(const array_xxf& arr, int dim = 0)
+        /// Dump out a string for pinting for a 1D view.
+        template <class ViewType>
+        inline std::string dump_1d_view(const ViewType& A, const Index length_limit = 20)
         {
-            Index N0 = arr.extent(0);
-            Index N1 = arr.extent(1);
-            auto ret = gen_2d_view<array_xxc>(N0, N1, 0);
-            // TODO place holder for now, implement a real one!
-            Kokkos::parallel_for("dft_rc",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
-            return ret;
-        }
-        inline array_xxc dft_cc(const array_xxc& arr, int dim = 1)
-        {
-            Index N0 = arr.extent(0);
-            Index N1 = arr.extent(1);
-            auto ret = gen_2d_view<array_xxc>(N0, N1, 0);
-            // TODO place holder for now, implement a real one!
-            Kokkos::parallel_for("dft_cc",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)+1; });
-            return ret;
-        }
-        inline array_xxc idft_cc(const array_xxc& arr, int dim = 1)
-        {
-            Index N0 = arr.extent(0);
-            Index N1 = arr.extent(1);
-            auto ret = gen_2d_view<array_xxc>(N0, N1, 0);
-            // TODO place holder for now, implement a real one!
-            Kokkos::parallel_for("idft_cc",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = arr(i0, i1)-1; });
-            return ret;
-        }
-        inline array_xxf idft_cr(const array_xxc& arr, int dim = 0)
-        {
-            Index N0 = arr.extent(0);
-            Index N1 = arr.extent(1);
-            auto ret = gen_2d_view<array_xxf>(N0, N1, 0);
-            // TODO place holder for now, implement a real one!
-            Kokkos::parallel_for("idft_cr",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = Kokkos::real(arr(i0, i1))-1; });
-            return ret;
+            std::stringstream ss;
+            ss << typeid(ViewType).name() << ":\n";
+
+            auto h_A = Kokkos::create_mirror_view(A);
+            Kokkos::deep_copy(h_A, A);
+
+            Index N0 = A.extent(0);
+            bool print_dot1 = true;
+            for (Index j = 0; j < N0; ++j) {
+                if (j > length_limit && j < N0 - length_limit) {
+                    if (print_dot1) {
+                        ss << "... ";
+                        print_dot1 = false;
+                    }
+                    continue;
+                }
+                ss << h_A(j) << " ";
+            }
+            ss << std::endl;
+
+            bool all_zero = true;
+            for (Index j = 0; j < N0 && all_zero == true; ++j) {
+                if (h_A(j) != 0) {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if (all_zero) {
+                ss << "All Zero!\n";
+            }
+
+            return ss.str();
         }
 
     }  // namespace KokkosArray
 }  // namespace WireCell
+
+#ifdef KOKKOS_ENABLE_CUDA
+#include "WireCellGenKokkos/KokkosArray_cuda.h"
+#else
+#include "WireCellGenKokkos/KokkosArray_fftw.h"
+#endif
 
 #endif
