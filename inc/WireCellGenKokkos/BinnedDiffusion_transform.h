@@ -7,6 +7,7 @@
 #include "WireCellIface/IDepo.h"
 
 #include "WireCellGenKokkos/ImpactData.h"
+#include "WireCellGenKokkos/GdData.h"
 
 #include <deque>
 #include <Eigen/Sparse>
@@ -113,7 +114,24 @@ namespace WireCell {
 
 	    double get_nsigma() const {return m_nsigma;};
 
-	    void set_sampling_bat( const unsigned long npatch, int patch_size) ;
+	   // void set_sampling_bat( const unsigned long npatch, int patch_size) ;
+	   typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
+	   typedef Kokkos::View<unsigned int * > size_vt ;
+	   typedef Kokkos::View<unsigned long * > idx_vt ;
+  	   typedef Kokkos::View<double * > db_vt ;
+           typedef Kokkos::View<float *> fl_vt ;
+
+	   void set_sampling_bat(const unsigned long npatches,
+                const size_vt np_d,
+                const size_vt nt_d,
+                const idx_vt patch_idx ,
+                const db_vt pvecs_d,
+                const db_vt tvecs_d,
+                fl_vt patch_d,
+                const db_vt normals,
+                const gd_vt gdata ) ; 
+
+
 	    
 	private:
 	    
@@ -143,24 +161,24 @@ namespace WireCell {
 
             //Kokkos::DualView<double[MAX_NPSS_DEVICE]> m_pvec;
             //Kokkos::DualView<double[MAX_NTSS_DEVICE]> m_tvec;
-            Kokkos::View<float*> m_patch;
+//            Kokkos::View<float*> m_patch;
             Kokkos::View<double*> m_normals;
-            Kokkos::DualView<double*> m_ptvecs;
+//            Kokkos::DualView<double*> m_ptvecs;
 	    //for batch
-            Kokkos::View<double*> m_pvecs;
-            Kokkos::View<double*> m_tvecs;
-            Kokkos::View<double*> m_charges;
-            Kokkos::View<unsigned long *> m_t_idx;
-            Kokkos::View<unsigned long *> m_p_idx;
-            Kokkos::View<unsigned long *> m_patch_idx;
-	    void* m_ptvecs_h ;
-	    double* m_pvecs_h ;
-	    double* m_tvecs_h ;
-	    double* m_charges_h ;
-	    float * m_patch_h ;
-	    unsigned long * m_t_idx_h;
-	    unsigned long * m_p_idx_h ;
-	    unsigned long * m_patch_idx_h;
+//            Kokkos::View<double*> m_pvecs;
+//            Kokkos::View<double*> m_tvecs;
+//            Kokkos::View<double*> m_charges;
+//            Kokkos::View<unsigned long *> m_t_idx;
+//            Kokkos::View<unsigned long *> m_p_idx;
+//            Kokkos::View<unsigned long *> m_patch_idx;
+//	    void* m_ptvecs_h ;
+//	    double* m_pvecs_h ;
+//	    double* m_tvecs_h ;
+//	    double* m_charges_h ;
+//	    float * m_patch_h ;
+//	    unsigned long * m_t_idx_h;
+//	    unsigned long * m_p_idx_h ;
+//	    unsigned long * m_patch_idx_h;
 	    
 //	    Kokkos::View<GenKokkos:GdData*> m_Gd ;
 

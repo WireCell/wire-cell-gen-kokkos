@@ -172,10 +172,11 @@ int main( int argc, char* argv[] )
   }
 
  double sum = 0;	
- Kokkos::parallel_scan(100,[=](int i, int& lsum, bool final) {	
- if(final) printf(”ScanValue %i\n",lsum); 	
+ Kokkos::parallel_scan(100,
+   KOKKOS_LAMBDA(int i, int& lsum, bool final) {	
  lsum += i;
- });
+ if(final) printf("ScanValue %i , %i\n",i, lsum); 	
+ } );
 
   Kokkos::finalize();
 
