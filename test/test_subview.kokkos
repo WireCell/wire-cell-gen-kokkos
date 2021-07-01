@@ -1,0 +1,33 @@
+#include "WireCellGenKokkos/KokkosArray.h"
+#include "WireCellUtil/Array.h"
+
+#include <iostream>
+#include <typeinfo>
+
+using namespace std;
+using namespace WireCell;
+using namespace WireCell::KokkosArray;
+
+int main(int argc, char* argv[])
+{
+    int N0 = 2;
+    int N1 = 3;
+
+    if (argc > 1) N0 = atoi(argv[1]);
+    if (argc > 2) N1 = atoi(argv[2]);
+
+    Kokkos::initialize(argc, argv);
+    {
+        std::cout << "Space: " << typeid(Space).name() << std::endl;
+        array_xxf A = Zero<array_xxf>(N0, N1);
+        Kokkos::parallel_for("modify_A",
+                             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                             KOKKOS_LAMBDA(const Index& i0, const Index& i1) { A(i0, i1) = i0 * 10 + i1; });
+
+        auto A_sub = Kokkos::subview(A, (size_t) 0, std::make_pair((size_t) 0, (size_t) A.extent(1)));
+        A_sub(0) = 42;
+        std::cout << "A: " << dump_2d_view(A) << "A_sub: " << dump_1d_view(A_sub);
+    }
+    Kokkos::finalize();
+    return 0;
+}

@@ -1,0 +1,86 @@
+#include "WireCellGenKokkos/KokkosArray.h"
+#include "WireCellUtil/Array.h"
+
+#include <iostream>
+#include <typeinfo>
+
+using namespace std;
+using namespace WireCell;
+using namespace WireCell::KokkosArray;
+
+int main(int argc, char* argv[])
+{
+    int N0 = 2;
+    int N1 = 3;
+    int nrep = 1;
+    int nstep = 100;
+    if (argc > 1) N0 = atoi(argv[1]);
+    if (argc > 2) N1 = atoi(argv[2]);
+    if (argc > 3) nrep = atoi(argv[3]);
+    if (argc > 4) nstep = atoi(argv[4]);
+
+    Kokkos::initialize(argc, argv);
+    while (true)
+    {
+        Kokkos::Timer timer;
+
+        if (nstep < 1) break;
+        std::cout << "Space: " << typeid(Space).name() << std::endl;
+        array_xxf A = Zero<array_xxf>(N0, N1);
+        Kokkos::parallel_for("modify_A",
+                             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                             KOKKOS_LAMBDA(const Index& i0, const Index& i1) { A(i0, i1) = i0 * 10 + i1; });
+#ifdef KOKKOS_ENABLE_CUDA
+        if (nstep < 2) break;
+        timer.reset();
+        cufftHandle plan;
+        cufftPlan2d(&plan, 10, 10, CUFFT_R2C);
+        cufftDestroy(plan);
+        printf("Plan %f ms.\n", timer.seconds()*1000);
+#endif
+        if (nstep < 3) break;
+        Kokkos::fence();
+        timer.reset();
+        dft_rc(A);
+        Kokkos::fence();
+        printf("A: init %f ms.\n", timer.seconds()*1000);
+        
+        printf("A dims: %d %d\n", N0, N1);
+        float total_time = 0;
+        for (int irep = 0; irep < nrep; ++irep) {
+            timer.reset();
+            dft_rc(A);
+            Kokkos::fence();
+            total_time += timer.seconds();
+            printf("irep: %d %f ms.\n", irep, timer.seconds()*1000);
+        }
+        printf("A: nrep: %d avg: %.2f ms.\n", nrep, total_time/nrep*1000);
+        
+        if (nstep < 4) break;
+        array_xxf B = Zero<array_xxf>(N0*2, N1);
+        Kokkos::parallel_for("modify_B",
+                             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0*2, N1}),
+                             KOKKOS_LAMBDA(const Index& i0, const Index& i1) { B(i0, i1) = i0 * 10 + i1; });
+        
+        Kokkos::fence();
+        timer.reset();
+        dft_rc(B);
+        Kokkos::fence();
+        printf("B: init %f ms.\n", timer.seconds()*1000);
+
+        printf("B dims: %d %d\n", N0*2, N1);
+        total_time = 0;
+        for (int irep = 0; irep < nrep; ++irep) {
+            timer.reset();
+            dft_rc(B);
+            Kokkos::fence();
+            total_time += timer.seconds();
+            printf("irep: %d %f ms.\n", irep, timer.seconds()*1000);
+        }
+        printf("B: nrep: %d avg: %.2f ms.\n", nrep, total_time/nrep*1000);
+
+        break;
+    }
+    Kokkos::finalize();
+    return 0;
+}
