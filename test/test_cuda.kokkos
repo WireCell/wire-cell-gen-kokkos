@@ -170,6 +170,14 @@ int main( int argc, char* argv[] )
           N, M, nrepeat, Gbytes * 1000, time, Gbytes * nrepeat / time );
 
   }
+
+ double sum = 0;	
+ Kokkos::parallel_scan(100,
+   KOKKOS_LAMBDA(int i, int& lsum, bool final) {	
+ lsum += i;
+ if(final) printf("ScanValue %i , %i\n",i, lsum); 	
+ } );
+
   Kokkos::finalize();
 
   return 0;

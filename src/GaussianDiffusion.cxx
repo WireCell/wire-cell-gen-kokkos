@@ -28,116 +28,6 @@ double g_set_sampling_part5 = 0.0;
 
 
 
-struct kokkos_patching_functor {
-
-    View<double*> ptvec ;
-    const int np;
-    const int nt;
-    View<float*> patch;
-    double charge;
-    using value_type = float;
-    float patch_sum;
-
-
-    kokkos_patching_functor(View<double*> ptvec_, const int np_, const int nt_, View<float*> patch_, double charge_) 
-    : ptvec(ptvec_),  np(np_), nt(nt_), patch(patch_), charge(charge_)
-    , patch_sum(0.0)
-    {
-    }
-
-    // column major
-    //KOKKOS_INLINE_FUNCTION
-    //void operator()(const int i, const int j) const
-    //{
-    //    patch(i + np*j) = (float)(ptvec[i]*ptvec[np+j]);
-    //}
-
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const int i, value_type& sum) const
-    //void operator()(const int i, float& sum) const
-    {
-	int ii=i%np ;
-	int jj=i/np ;
-	patch(i) = (float)(ptvec[ii]*ptvec[np+jj]);
-        sum += patch(i);
-        //patch_sum += sum;
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const int i) const
-    {
-        patch(i) *= (charge/patch_sum);
-    }
-
-    void setSum(float sum) {patch_sum = sum;}
-
-};
-
-
-struct kokkos_sampling_functor {
-
-    double np;
-    double charge;
-    double sign;
-    View<float*> patch;
-    Kokkos::View<double*> normals;
-    using value_type = float;
-    float patch_sum;
-    float sum0 ;
-    size_t n;
-    
-
-    kokkos_sampling_functor(const int np_, View<float*> patch_, Kokkos::View<double*> normals_, double charge_, double sign_, float sum_)
-    : np(np_), charge(charge_), sign(sign_),  patch(patch_), normals(normals_), sum0(sum_) 
-    , patch_sum(0.0)
-    {
-        n = (int)(std::abs(charge));
-    }
-
-    //*
-//    KOKKOS_INLINE_FUNCTION
-//    void operator()(const int i, const int j) const
-//    {
-//        int index = i + np*j;
-//        double p = patch(index)/charge;
-//        double q = 1 - p;
-//        double mu = n*p;
-//        double sigma = sqrt(n*p*q);
-//
-//        patch(index) = normals(index) * sigma + mu;
-//
- //   }
-
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const int i, value_type& sum) const
-    {
-	patch(i) *=  (charge/sum0) ;
-	double p = patch(i)/charge;
-        double q = 1 - p;
-        double mu = n*p;
-        double sigma = sqrt(n*p*q);
-
-        patch(i) = normals(i) * sigma + mu;
-
-
-        sum += patch(i);
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const int i) const
-    {
-        patch(i) *= (charge/patch_sum);
-    }
-
-    void setSum(float sum) {patch_sum = sum;}
-    //*/
-
-
-};
-
-
-
-
 std::vector<double> GenKokkos::GausDesc::sample(double start, double step, int nsamples) const
 {
     std::vector<double> ret;
@@ -375,7 +265,7 @@ void GenKokkos::GaussianDiffusion::set_sampling(const Binning& tbin, // overall 
 }
 
 
-
+/*
 
 void GenKokkos::GaussianDiffusion::set_sampling(
                                                 //Kokkos::DualView<double[MAX_NPSS_DEVICE]>& pvec_V,
@@ -526,7 +416,7 @@ void GenKokkos::GaussianDiffusion::set_sampling(
 
 
 }
-
+*/
 void GenKokkos::GaussianDiffusion::set_sampling_pre(
 					        const int diff_idx ,
 						int & patch_size ,
