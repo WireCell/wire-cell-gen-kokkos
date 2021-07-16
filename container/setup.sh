@@ -38,6 +38,4 @@ setup_supported_version cmake
 setup_supported_version gdb
 setup_supported_version valgrind
 
-dotted_version_with_v=${WIRECELL_VERSION//_/.}
-dotted_version=${dotted_version_with_v:1}
-WIRECELL_PATH=$WIRECELL_FQ_DIR/wirecell-${dotted_version}/cfg:$WIRECELL_PATH
+WIRECELL_PATH=$(realpath $WIRECELL_FQ_DIR/wirecell-*/cfg):$WIRECELL_PATH
