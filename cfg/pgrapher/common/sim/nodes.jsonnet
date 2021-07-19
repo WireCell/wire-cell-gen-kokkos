@@ -65,7 +65,7 @@ function(params, tools)
     }, nin=1,nout=1,uses=[tools.random, anode] + pir_trio),
     
     make_depotransform :: function(name, anode, pirs) g.pnode({
-        type:'GenKokkosDepoTransform',
+        type:'GenKokkosDepoTransform', // GenKokkosDepoTransform, DepoTransform
         name:name,
         data: {
             rng: wc.tn(tools.random),
@@ -78,7 +78,7 @@ function(params, tools)
             start_time: params.sim.ductor.start_time,
             tick: params.daq.tick,
             nsigma: 3,
-            transform: 'transform_vector', // transform_matrix, transform_vector
+            transform: 'transform_matrix', // transform_matrix, transform_vector
         },
     }, nin=1, nout=1, uses=[anode] + pirs),
 
