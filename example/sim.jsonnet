@@ -84,8 +84,8 @@ local drifter = sim.drifter;
 local bagger = [sim.make_bagger("bagger%d"%n) for n in anode_iota];
 
 // signal plus noise pipelines
-//local sn_pipes = sim.signal_pipelines;
-local sn_pipes = sim.splusn_pipelines;
+local sn_pipes = sim.signal_pipelines;
+//local sn_pipes = sim.splusn_pipelines;
 
 // local perfect = import 'pgrapher/experiment/pdsp/chndb-perfect.jsonnet';
 local base = import 'pgrapher/experiment/pdsp/chndb-base.jsonnet';
@@ -165,10 +165,28 @@ local hio_sp = [g.pnode({
     for n in std.range(0, std.length(tools.anodes) - 1)
     ];
 
+local retagger = [g.pnode({
+        type: 'Retagger',
+        data: {
+            // Note: retagger keeps tag_rules an array to be like frame fanin/fanout.
+            tag_rules: [{
+            // Retagger also handles "frame" and "trace" like fanin/fanout
+            // merge separately all traces like gaussN to gauss.
+            frame: {
+                '.*': 'orig%d'%n,
+            },
+            }],
+        },
+        }, nin=1, nout=1),
+    for n in std.range(0, std.length(tools.anodes) - 1)
+    ];
+
+
 local reco_fork = [
     g.pipeline([
                 bagger[n],
                 sn_pipes[n],
+                retagger[n],
                 kokkos_test[n],
                 hio_orig[n],
                 // nf_pipes[n],
