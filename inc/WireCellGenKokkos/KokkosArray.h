@@ -6,8 +6,6 @@
 #ifndef WIRECELL_KOKKOSARRAY
 #define WIRECELL_KOKKOSARRAY
 
-#include "WireCellUtil/Waveform.h"
-
 #include <Kokkos_Core.hpp>
 
 #include <string>
@@ -18,14 +16,31 @@ namespace WireCell {
     namespace KokkosArray {
         using Scalar = float;
         using Index = int;
-        using Layout = Kokkos::LayoutLeft;
+        using Layout = Kokkos::LayoutLeft; /// left layout -> column major
         using Space = Kokkos::DefaultExecutionSpace;
+
+        /// A real, 1D array
+        typedef Kokkos::View<Scalar*, Layout, Space> array_xf;
+        typedef Kokkos::View<Scalar*, Layout, Kokkos::HostSpace> array_xf_h;
+
+        /// A complex, 1D array
+        typedef Kokkos::View<Kokkos::complex<Scalar>*, Layout, Space> array_xc;
+        typedef Kokkos::View<Kokkos::complex<Scalar>*, Layout, Kokkos::HostSpace> array_xc_h;
 
         /// A real, 2D array
         typedef Kokkos::View<Scalar**, Layout, Space> array_xxf;
 
         /// A complex, 2D array
         typedef Kokkos::View<Kokkos::complex<Scalar>**, Layout, Space> array_xxc;
+
+        /// Generate a 1D view initialized with given value.
+        template <class ViewType>
+        inline ViewType gen_1d_view(const Index N0, const Scalar val = 0)
+        {
+            ViewType ret("ret", N0);
+            Kokkos::parallel_for(N0, KOKKOS_LAMBDA(const Index& i0) { ret(i0) = val; });
+            return ret;
+        }
 
         /// Generate a 2D view initialized with given value.
         template <class ViewType>

@@ -5,7 +5,7 @@
 #ifndef WIRECELL_KOKKOSARRAY_FFTW
 #define WIRECELL_KOKKOSARRAY_FFTW
 
-#include <WireCellUtil/Array.h>
+#include <WireCellUtil/Array.h> // tmp solution
 #include <iostream> //debug
 
 namespace WireCell {
@@ -16,7 +16,25 @@ namespace WireCell {
          * this may introduce extra data copying, will investigate later
          * by default eigen is left layout (column major)
          * https://eigen.tuxfamily.org/dox/group__TopicStorageOrders.html
+         * FIXME: float should be Scalar
          */
+        thread_local static Eigen::FFT<float> gEigenFFT;
+        inline array_xc dft(const array_xf& in)
+        {
+            Eigen::Map<Eigen::VectorXf> in_eigen((float*) in.data(), in.extent(0));
+            Eigen::VectorXcf out_eigen = gEigenFFT.fwd(in_eigen);
+            array_xc out(Kokkos::ViewAllocateWithoutInitializing("out") , out_eigen.size()) ;
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.size()*sizeof(float) * 2);
+            return out;
+        }
+        inline array_xf idft(const array_xc& in)
+        {
+            Eigen::Map<Eigen::VectorXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0));
+            Eigen::VectorXf out_eigen = gEigenFFT.inv(in_eigen);
+            array_xf out(Kokkos::ViewAllocateWithoutInitializing("out") , out_eigen.size()) ;
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.size()*sizeof(float));
+            return out;
+        }
         inline array_xxc dft_rc(const array_xxf& in, int dim = 0)
         {
             std::cout << "WIRECELL_KOKKOSARRAY_FFTW" << std::endl;

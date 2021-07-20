@@ -18,6 +18,14 @@ int main(int argc, char* argv[])
 
     Kokkos::initialize(argc, argv);
     {
+        {
+            array_xf A(Kokkos::ViewAllocateWithoutInitializing("A") , N0);
+            Kokkos::parallel_for(N0, KOKKOS_LAMBDA(const Index& i0) { A(i0) = i0; });
+            auto B = dft(A);
+            auto C = idft(B);
+            std::cout << "A: " << dump_1d_view(A) << "B: " << dump_1d_view(B) << "C: " << dump_1d_view(C);
+        }
+
         std::cout << "Space: " << typeid(Space).name() << std::endl;
         array_xxf A = Zero<array_xxf>(N0, N1);
         Kokkos::parallel_for("modify_A",

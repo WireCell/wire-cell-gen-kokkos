@@ -14,6 +14,28 @@ namespace WireCell {
          * TODO:
          *  - round trip norm not included yet
          */
+        inline array_xc dft(const array_xf& in)
+        {
+            Index N0 = in.extent(0);
+            auto out = gen_1d_view<array_xc>(N0, 0);
+            cufftHandle plan;
+            cufftPlan1d(&plan, N0, CUFFT_R2C, 1);
+            cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
+            cufftDestroy(plan);
+            
+            return out;
+        }
+        inline array_xf idft(const array_xc& in)
+        {
+            Index N0 = in.extent(0);
+            auto out = gen_1d_view<array_xf>(N0, 0);
+            cufftHandle plan;
+            cufftPlan1d(&plan, N0, CUFFT_C2R, 1);
+            cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
+            cufftDestroy(plan);
+            
+            return out;
+        }
         inline array_xxc dft_rc(const array_xxf& in, int dim = 0)
         {
             std::cout << "WIRECELL_KOKKOSARRAY_CUDA" << std::endl;
