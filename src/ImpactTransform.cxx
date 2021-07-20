@@ -281,6 +281,27 @@ bool GenKokkos::ImpactTransform::transform_matrix()
 
     const auto pimpos = m_bd.pimpos();
 
+    for (int i = 0; i != m_num_group; i++) {
+        double rel_cen_imp_pos;
+        if (i != m_num_group - 1) {
+            rel_cen_imp_pos = -m_pir->pitch() / 2. + m_pir->impact() * i + 1e-9;
+        }
+        else {
+            rel_cen_imp_pos = -m_pir->pitch() / 2. + m_pir->impact() * i - 1e-9;
+        }
+        m_vec_impact.push_back(std::round(rel_cen_imp_pos / m_pir->impact()));
+        std::map<int, IImpactResponse::pointer> map_resp;  // already in freq domain
+
+        for (int j = 0; j != m_pir->nwires(); j++) {
+            map_resp[j - m_num_pad_wire] = m_pir->closest(rel_cen_imp_pos - (j - m_num_pad_wire) * m_pir->pitch());
+            Waveform::compseq_t response_spectrum = map_resp[j - m_num_pad_wire]->spectrum();
+        }
+        m_vec_map_resp.push_back(map_resp);
+
+        std::vector<std::tuple<int, int, double> > vec_charge;  // ch, time, charge
+        m_vec_vec_charge.push_back(vec_charge);
+    }
+
     std::pair<int, int> impact_range = m_bd.impact_bin_range(m_bd.get_nsigma());
     std::pair<int, int> time_range = m_bd.time_bin_range(m_bd.get_nsigma());
 
@@ -331,6 +352,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     {
         KokkosArray::array_xxc data_f_w = KokkosArray::Zero<KokkosArray::array_xxc>(end_ch - start_ch + 2 * npad_wire, m_end_tick - m_start_tick);
         {
+            // KokkosArray::array_xxf data_t_w = f_data;
             KokkosArray::array_xxf data_t_w =
                 KokkosArray::Zero<KokkosArray::array_xxf>(end_ch - start_ch + 2 * npad_wire, m_end_tick - m_start_tick);
             Kokkos::parallel_for("data_t_w",
@@ -348,6 +370,65 @@ bool GenKokkos::ImpactTransform::transform_matrix()
             data_f_w = KokkosArray::dft_cc(data_f_w, 1);
         }
 
+        //field response
+        {
+            KokkosArray::array_xxc resp_f_w = KokkosArray::Zero<KokkosArray::array_xxc>(end_ch - start_ch + 2 * npad_wire, m_end_tick - m_start_tick);
+            {
+                Waveform::compseq_t rs1 = m_vec_map_resp.at(5)[0]->spectrum();
+                KokkosArray::array_xc_h rs1_k_h((Kokkos::complex<KokkosArray::Scalar>*) &rs1[0], rs1.size());
+                KokkosArray::array_xc rs1_k(Kokkos::ViewAllocateWithoutInitializing("rs1"), rs1.size());
+                Kokkos::deep_copy(rs1_k, rs1_k_h);
+
+                // do a inverse FFT
+                KokkosArray::array_xf rs1_t_k = KokkosArray::idft(rs1_k);
+                // pick the first xxx ticks
+                KokkosArray::array_xf rs1_reduced_k = KokkosArray::gen_1d_view<KokkosArray::array_xf>(m_end_tick - m_start_tick, 0);
+                KokkosArray::Index red_size =
+                    m_end_tick - m_start_tick < rs1_k.extent(0) ? m_end_tick - m_start_tick : rs1_k.extent(0);
+                Kokkos::parallel_for(red_size,
+                                     KOKKOS_LAMBDA(const KokkosArray::Index& icol) { rs1_reduced_k(icol) = rs1_t_k(icol); });
+                // std::cout << "matrix: rs1_reduced_k: " << KokkosArray::dump_1d_view(rs1_reduced_k,10000);
+                // do a FFT
+                rs1_k = KokkosArray::dft(rs1_reduced_k);
+                // std::cout << "matrix: rs1_k: " << KokkosArray::dump_1d_view(rs1_k,10000);
+                Kokkos::parallel_for(m_end_tick - m_start_tick,
+                                     KOKKOS_LAMBDA(const KokkosArray::Index& icol) { resp_f_w(0, icol) = rs1_k(icol); });
+                // std::cout << "matrix: resp_f_w: " << KokkosArray::dump_2d_view(resp_f_w,10000);
+            }
+            // for (int irow = 0; irow != m_num_pad_wire; irow++) {
+            //     Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[irow + 1]->spectrum();
+            //     Waveform::realseq_t rs1_t = Waveform::idft(rs1);
+            //     Waveform::realseq_t rs1_reduced(m_end_tick - m_start_tick, 0);
+            //     for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
+            //         if (icol >= int(rs1_t.size())) break;
+            //         rs1_reduced.at(icol) = rs1_t[icol];
+            //     }
+            //     rs1 = Waveform::dft(rs1_reduced);
+            //     Waveform::compseq_t rs2 = m_vec_map_resp.at(i)[-irow - 1]->spectrum();
+            //     Waveform::realseq_t rs2_t = Waveform::idft(rs2);
+            //     Waveform::realseq_t rs2_reduced(m_end_tick - m_start_tick, 0);
+            //     for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
+            //         if (icol >= int(rs2_t.size())) break;
+            //         rs2_reduced.at(icol) = rs2_t[icol];
+            //     }
+            //     rs2 = Waveform::dft(rs2_reduced);
+            //     for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
+            //         resp_f_w(irow + 1, icol) = rs1[icol];
+            //         resp_f_w(end_ch - start_ch - 1 - irow + 2 * npad_wire, icol) = rs2[icol];
+            //     }
+            // }
+            // Do FFT on wire for response // slight larger
+            resp_f_w = KokkosArray::dft_cc(resp_f_w, 1);  // Now becomes the f and f in both time and wire domain ...
+
+            // multiply them together
+            // data_f_w = data_f_w * resp_f_w;
+            Kokkos::parallel_for(Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>(
+                                     {0, 0}, {data_f_w.extent(0), data_f_w.extent(1)}),
+                                 KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                                     data_f_w(i0, i1) *= resp_f_w(i0, i1);
+                                 });
+        }
+
         // Do inverse FFT on wire
         data_f_w = KokkosArray::idft_cc(data_f_w, 1);
 
@@ -356,6 +437,10 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {data_f_w.extent(0), data_f_w.extent(1)}),
                             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { acc_data_f_w(i0, i1) += data_f_w(i0, i1);});
     }
+
+    // TODO
+    // ========== start waveform batch ==========
+    // ========== end waveform batch ==========
 
     auto acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
 
@@ -395,25 +480,25 @@ Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
             // std::cout << m_decon_data(iwire-m_start_ch,i-m_start_tick) << std::endl;
         }
 
-        if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
-            // now convolute with the long-range response ...
-            const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
+        // if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
+        //     // now convolute with the long-range response ...
+        //     const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
 
-            // nlength = nsamples;
+        //     // nlength = nsamples;
 
-            //   std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
+        //     //   std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
 
-            wf.resize(nlength, 0);
-            Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
-            long_resp.resize(nlength, 0);
-            Waveform::compseq_t spec = Waveform::dft(wf);
-            Waveform::compseq_t long_spec = Waveform::dft(long_resp);
-            for (size_t i = 0; i != nlength; i++) {
-                spec.at(i) *= long_spec.at(i);
-            }
-            wf = Waveform::idft(spec);
-            wf.resize(nsamples, 0);
-        }
+        //     wf.resize(nlength, 0);
+        //     Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
+        //     long_resp.resize(nlength, 0);
+        //     Waveform::compseq_t spec = Waveform::dft(wf);
+        //     Waveform::compseq_t long_spec = Waveform::dft(long_resp);
+        //     for (size_t i = 0; i != nlength; i++) {
+        //         spec.at(i) *= long_spec.at(i);
+        //     }
+        //     wf = Waveform::idft(spec);
+        //     wf.resize(nsamples, 0);
+        // }
 
         return wf;
     }
