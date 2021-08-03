@@ -25,4 +25,6 @@ foreach(source_file IN LISTS all_execs)
       $ENV{SPDLOG_INC}
       $ENV{WIRECELL_INC}
   )
+ set_target_properties(${exec_name}
+                      PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA")
 endforeach()

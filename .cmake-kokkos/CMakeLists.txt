@@ -49,4 +49,4 @@ set_target_properties(WireCellGenKokkos
 target_link_directories(WireCellGenKokkos PRIVATE $ENV{JSONCPP_LIB} $ENV{WIRECELL_LIB})
 target_link_libraries(WireCellGenKokkos PRIVATE jsoncpp WireCellIface WireCellUtil Boost::headers Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
 
-#add_subdirectory(test)
+add_subdirectory(test)
