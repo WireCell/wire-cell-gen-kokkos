@@ -68,8 +68,6 @@ struct generate_random {
 
     generate_random(Kokkos::View<double*> normals_, GeneratorPool rand_pool1_, GeneratorPool rand_pool2_, int samples_)
         : normals(normals_), rand_pool1(rand_pool1_), rand_pool2(rand_pool2_), samples(samples_), range_min(1) {
-        //range_max1 = rand_pool1.get_state().max();
-        //range_max2 = rand_pool2.get_state().max();
         range_max1 = 0xffffffffffffffffULL-1;
         range_max2 = range_max1;
     }
@@ -77,8 +75,7 @@ struct generate_random {
     KOKKOS_INLINE_FUNCTION
     void operator()(int i) const {
         //
-        typename GeneratorPool::generator_type rand_gen1 = rand_pool1.get_state();
-//        typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
+        typename GeneratorPool::generator_type rand_gen1 = rand_pool1.get_state();//        typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
 
         for (int k = 0; k < samples/2; k++) {
             double u1 = (double) rand_gen1.urand64(range_min, range_max1) / range_max1;
@@ -95,26 +92,6 @@ struct generate_random {
 };
 
 
-
-
-
-
-
-
-
-
-
-
-// bool GenKokkos::GausDiffTimeCompare::operator()(const std::shared_ptr<GenKokkos::GaussianDiffusion>& lhs, const std::shared_ptr<GenKokkos::GaussianDiffusion>& rhs) const
-// {
-//   if (lhs->depo_time() == rhs->depo_time()) {
-//     if (lhs->depo_x() == lhs->depo_x()) {
-//       return lhs.get() < rhs.get(); // break tie by pointer
-//     }
-//     return lhs->depo_x() < lhs->depo_x();
-//   }
-//   return lhs->depo_time() < rhs->depo_time();
-// }
 
 
 GenKokkos::BinnedDiffusion_transform::BinnedDiffusion_transform(const Pimpos& pimpos, const Binning& tbins,
@@ -142,8 +119,6 @@ GenKokkos::BinnedDiffusion_transform::~BinnedDiffusion_transform() {
 void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
-    //size_t size = RANDOM_BLOCK_NUM;
-    //size_t samples = RANDOM_BLOCK_SIZE;
     size_t size = MAX_PATCHES;
     size_t samples = MAX_PATCH_SIZE;
     int seed = 2020;
@@ -157,12 +132,6 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
 void GenKokkos::BinnedDiffusion_transform::clear_Device() {
-  //CUDA_SAFE_CALL(cudaFree(m_pvec_D));
-  //CUDA_SAFE_CALL(cudaFree(m_tvec_D));
-  //CUDA_SAFE_CALL(cudaFree(m_patch_D));
-  //CUDA_SAFE_CALL(cudaFree(m_rand_D));
-
-  //CURAND_SAFE_CALL(curandDestroyGenerator(m_Gen));
 
 }
 
@@ -267,7 +236,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     Kokkos::Tools::pushRegion("partA") ;
     std::cout << "yuhw: get_charge_matrix_kokkos\n";
 
-    double wstart, wend, wstart2, wend2;
+    double wstart, wend ;
     wstart = omp_get_wtime();
     const auto ib = m_pimpos.impact_binning();
 
@@ -301,7 +270,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         }
     }
 
-    int min_imp = 0;
+    //int min_imp = 0;
     int max_imp = ib.nbins();
     int counter = 0;
 
@@ -312,7 +281,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     wstart = omp_get_wtime();
     Kokkos::Tools::popRegion() ;
     // set the size of gd view and create host view
-    unsigned int npatches = m_diffs.size();
+    int npatches = m_diffs.size();
     // typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
     Kokkos::Tools::pushRegion("partB") ;
     Kokkos::Tools::pushRegion("hostallocGdate") ;
@@ -400,7 +369,6 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                   patch_idx(i) = lsum;
                                   if (i == (npatches - 1)) {
                                       patch_idx(npatches) = lsum + np_d(i) * nt_d(i);
-                                      //	 printf("np_d(i)=%d, nt_d(i)=%d lsum=%lu\n", np_d(i) , nt_d(i),lsum ) ;
                                   }
                               }
                               //  bool pr =true ;
@@ -661,7 +629,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix(std::vector<Eigen::
 // a new function to generate the result for the entire frame ... 
 void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vector<std::tuple<int,int, double> > >& vec_vec_charge, std::vector<int>& vec_impact){
 
-  double wstart, wend, wstart2, wend2;
+  double wstart, wend ;
 
   wstart = omp_get_wtime();
   const auto ib = m_pimpos.impact_binning();
@@ -711,7 +679,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   wstart = omp_get_wtime();
 
   //set the size of gd view and create host view
-  unsigned int npatches = m_diffs.size() ;
+  int npatches = m_diffs.size() ;
   //typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
   gd_vt gdata(Kokkos::ViewAllocateWithoutInitializing("Gdata"), npatches) ;
   auto gdata_h = Kokkos::create_mirror_view(gdata) ;
