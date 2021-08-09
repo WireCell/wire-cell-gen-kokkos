@@ -284,7 +284,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     int npatches = m_diffs.size();
     // typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
     Kokkos::Tools::pushRegion("partB") ;
-    Kokkos::Tools::pushRegion("hostallocGdate") ;
+    Kokkos::Tools::pushRegion("host and device allocGdate") ;
     gd_vt gdata(Kokkos::ViewAllocateWithoutInitializing("Gdata"), npatches);
     auto gdata_h = Kokkos::create_mirror_view(gdata);
 
@@ -384,25 +384,28 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // debug:
     std::cout << "total patch size: " << result << " WeightStrat: " << m_calcstrat << std::endl;
     Kokkos::Tools::popRegion() ; 
-    Kokkos::Tools::pushRegion("patch/normal view create");
+    Kokkos::Tools::pushRegion("patch view create");
     // Allocate space for patches on device
     fl_vt patch_d(Kokkos::ViewAllocateWithoutInitializing("Patches"), result);
+    Kokkos::Tools::popRegion() ; 
     // make view on host
     //auto patch_v_h = Kokkos::create_mirror_view(patch_d);
     // make a view pointing to random numbers
-    int seed = 2020;
+    Kokkos::Tools::pushRegion("normal view create");
     int size = (result+255)/256 * 256 ; 
-
-    Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
     Kokkos::resize(m_normals, size );
+    Kokkos::Tools::popRegion() ; 
+    Kokkos::Tools::pushRegion("Random Number create");
+    int seed = 2020;
+    Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
 
     Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
     //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
     auto normals = m_normals;
+    Kokkos::Tools::popRegion() ;
 
     // decide weight calculation
     int weightstrat = m_calcstrat;
-    Kokkos::Tools::popRegion() ;
 
     // each team resposible for 1 GD , kernel calculate pvecs and tvecs
     //
@@ -869,29 +872,6 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 
 
 
-/*
-  m_t_idx_h[0]=0 ;
-  m_p_idx_h[0]=0 ;
-  m_patch_idx_h[0]=0 ;
-  int max_patch_size = 0 ;
-  int patch_size =0 ;
-  for (auto diff : m_diffs){
-    if(diff->depo()->charge()==0) continue;
-    wstart2 = omp_get_wtime();
-    #ifdef HAVE_CUDA_INC
-    diff->set_sampling_CUDA(m_pvec_D, m_tvec_D, m_patch_D, m_rand_D, &m_Gen, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    #else
-    //diff->set_sampling(m_pvec, m_tvec, m_patch, m_normals, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    //diff->set_sampling(m_patch, m_normals, m_ptvecs, (double*)m_ptvecs_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    diff->set_sampling_pre(counter,patch_size,m_pvecs_h,m_tvecs_h,m_charges_h,m_p_idx_h,m_t_idx_h,m_patch_idx_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    //diff->set_sampling(m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    #endif
-    wend2 = omp_get_wtime();
-    g_get_charge_vec_time_part4 = wend2 - wstart2;
-    counter ++;
-    max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size ;
-  }
-  */
   wend = omp_get_wtime();
   cout << "get_charge_vec() : set_sampling_pre() time " << wend- wstart<< endl;
 
