@@ -28,9 +28,8 @@ set(Boost_USE_MULTITHREADED ON)
 
 find_package(Boost REQUIRED COMPONENTS)
 find_package(Kokkos REQUIRED)
-find_package(CUDA REQUIRED)
 
-string(APPEND CMAKE_CXX_FLAGS "-g -O3 -fopenmp -pedantic -Wall")
+string(APPEND CMAKE_CXX_FLAGS "-g -O3 -fopenmp -pedantic -Wall ")
 string(APPEND CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 
 add_library(WireCellGenKokkos SHARED ${all_files})
@@ -44,9 +43,9 @@ target_include_directories(WireCellGenKokkos
     $ENV{WIRECELL_INC}
 )
 set_target_properties(WireCellGenKokkos
-                      PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA")
+	PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA -DEIGEN_FFTW_DEFAULT=1")
 
 target_link_directories(WireCellGenKokkos PRIVATE $ENV{JSONCPP_LIB} $ENV{WIRECELL_LIB})
-target_link_libraries(WireCellGenKokkos PRIVATE jsoncpp WireCellIface WireCellUtil Boost::headers Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
+target_link_libraries(WireCellGenKokkos PRIVATE jsoncpp WireCellIface WireCellUtil Boost::headers Kokkos::kokkos )
 
 add_subdirectory(test)

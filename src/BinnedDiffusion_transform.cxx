@@ -16,9 +16,9 @@
 #include <impl/Kokkos_Timer.hpp>
 
 
-#define MAX_PATCH_SIZE 1024
+#define MAX_PATCH_SIZE 512 
 #define P_BLOCK_SIZE  512
-#define MAX_PATCHES 200000
+#define MAX_PATCHES  50000
 #define MAX_NPSS_DEVICE 1000
 #define MAX_NTSS_DEVICE 1000
 #define FULL_MASK 0xffffffff
@@ -68,53 +68,30 @@ struct generate_random {
 
     generate_random(Kokkos::View<double*> normals_, GeneratorPool rand_pool1_, GeneratorPool rand_pool2_, int samples_)
         : normals(normals_), rand_pool1(rand_pool1_), rand_pool2(rand_pool2_), samples(samples_), range_min(1) {
-        //range_max1 = rand_pool1.get_state().max();
-        //range_max2 = rand_pool2.get_state().max();
         range_max1 = 0xffffffffffffffffULL-1;
         range_max2 = range_max1;
     }
 
     KOKKOS_INLINE_FUNCTION
     void operator()(int i) const {
-        //*
-        typename GeneratorPool::generator_type rand_gen1 = rand_pool1.get_state();
-        typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
+        //
+        typename GeneratorPool::generator_type rand_gen1 = rand_pool1.get_state();//        typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
 
         for (int k = 0; k < samples/2; k++) {
             double u1 = (double) rand_gen1.urand64(range_min, range_max1) / range_max1;
-            double u2 = (double) rand_gen2.urand64(range_min, range_max2) / range_max2;
+            double u2 = (double) rand_gen1.urand64(range_min, range_max2) / range_max2;
             normals(i * samples + 2*k)     = sqrt(-2*log(u1)) * cos(2*PI*u2);
             normals(i * samples + 2*k + 1) = sqrt(-2*log(u1)) * sin(2*PI*u2);
         }
 
         rand_pool1.free_state(rand_gen1);
-        rand_pool2.free_state(rand_gen2);
-        //*/
+        //rand_pool2.free_state(rand_gen2);
+        //
     }
    
 };
 
 
-
-
-
-
-
-
-
-
-
-
-// bool GenKokkos::GausDiffTimeCompare::operator()(const std::shared_ptr<GenKokkos::GaussianDiffusion>& lhs, const std::shared_ptr<GenKokkos::GaussianDiffusion>& rhs) const
-// {
-//   if (lhs->depo_time() == rhs->depo_time()) {
-//     if (lhs->depo_x() == lhs->depo_x()) {
-//       return lhs.get() < rhs.get(); // break tie by pointer
-//     }
-//     return lhs->depo_x() < lhs->depo_x();
-//   }
-//   return lhs->depo_time() < rhs->depo_time();
-// }
 
 
 GenKokkos::BinnedDiffusion_transform::BinnedDiffusion_transform(const Pimpos& pimpos, const Binning& tbins,
@@ -129,30 +106,12 @@ GenKokkos::BinnedDiffusion_transform::BinnedDiffusion_transform(const Pimpos& pi
     , m_outside_pitch(0)
     , m_outside_time(0)
 {
-    //Kokkos::realloc(m_patch, MAX_PATCH_SIZE*MAX_PATCHES);
-    //Kokkos::realloc(m_ptvecs, MAX_NPSS_DEVICE+MAX_NTSS_DEVICE);
-//    m_ptvecs_h = (void*)malloc((MAX_NPSS_DEVICE+MAX_NTSS_DEVICE)*sizeof(double)) ;
- //   m_pvecs_h = (double*)malloc((MAX_NPSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
-//    m_tvecs_h = (double*)malloc((MAX_NTSS_DEVICE*MAX_PATCHES)*sizeof(double)) ;
-//    m_charges_h = (double*)malloc(MAX_PATCHES*sizeof(double)) ;
-//    m_patch_h = (float*)malloc(MAX_PATCHES*MAX_PATCH_SIZE*sizeof(float)) ;
-//    m_p_idx_h = (unsigned long *)malloc((MAX_PATCHES+1)*sizeof(unsigned long)) ;
-//    m_t_idx_h = (unsigned long*)malloc((MAX_PATCHES+1)*sizeof(unsigned long)) ;
-//    m_patch_idx_h = (unsigned long*)malloc((MAX_PATCHES+1)*sizeof(unsigned long)) ;
-    init_Device();
+    //init_Device();
 }
 
 
 GenKokkos::BinnedDiffusion_transform::~BinnedDiffusion_transform() {
     clear_Device();
-//    free(m_ptvecs_h);
-//    free(m_pvecs_h);
-//    free(m_tvecs_h);
-//    free(m_charges_h);
-//    free(m_patch_h);
-//    free(m_p_idx_h);
-//    free(m_t_idx_h);
-//    free(m_patch_idx_h);
 }
 
 
@@ -160,8 +119,6 @@ GenKokkos::BinnedDiffusion_transform::~BinnedDiffusion_transform() {
 void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
-    //size_t size = RANDOM_BLOCK_NUM;
-    //size_t samples = RANDOM_BLOCK_SIZE;
     size_t size = MAX_PATCHES;
     size_t samples = MAX_PATCH_SIZE;
     int seed = 2020;
@@ -175,12 +132,6 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
 void GenKokkos::BinnedDiffusion_transform::clear_Device() {
-  //CUDA_SAFE_CALL(cudaFree(m_pvec_D));
-  //CUDA_SAFE_CALL(cudaFree(m_tvec_D));
-  //CUDA_SAFE_CALL(cudaFree(m_patch_D));
-  //CUDA_SAFE_CALL(cudaFree(m_rand_D));
-
-  //CURAND_SAFE_CALL(curandDestroyGenerator(m_Gen));
 
 }
 
@@ -281,10 +232,11 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                                                     std::vector<int>& vec_impact, const int start_pitch,
                                                                     const int start_tick)
 {
+    Kokkos::Tools::pushRegion("getchargeMaxtrix");
+    Kokkos::Tools::pushRegion("partA") ;
     std::cout << "yuhw: get_charge_matrix_kokkos\n";
 
-    double wstart, wend, wstart2, wend2;
-
+    double wstart, wend ;
     wstart = omp_get_wtime();
     const auto ib = m_pimpos.impact_binning();
 
@@ -318,7 +270,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         }
     }
 
-    int min_imp = 0;
+    //int min_imp = 0;
     int max_imp = ib.nbins();
     int counter = 0;
 
@@ -327,13 +279,19 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     cout << "get_charge_matrix_kokkos(): part2 running time : " << g_get_charge_vec_time_part2 << endl;
 
     wstart = omp_get_wtime();
+    Kokkos::Tools::popRegion() ;
     // set the size of gd view and create host view
-    unsigned int npatches = m_diffs.size();
+    int npatches = m_diffs.size();
     // typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
+    Kokkos::Tools::pushRegion("partB") ;
+    Kokkos::Tools::pushRegion("host and device allocGdate") ;
     gd_vt gdata(Kokkos::ViewAllocateWithoutInitializing("Gdata"), npatches);
     auto gdata_h = Kokkos::create_mirror_view(gdata);
 
+    Kokkos::Tools::popRegion() ;
+
     // fill the host view data from diffs
+    Kokkos::Tools::pushRegion("hostGdcopy") ;
     int ii = 0;
     for (auto diff : m_diffs) {
         gdata_h(ii).p_ct = diff->pitch_desc().center;
@@ -345,10 +303,12 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         //    std::endl ;
         ii++;
     }
+    Kokkos::Tools::popRegion() ;
 
     // copy to device
     Kokkos::deep_copy(gdata, gdata_h);
 
+    Kokkos::Tools::popRegion() ;
     // make and device friendly Binning  and copy tbin pbin over.
     GenKokkos::DBin tb, pb;
     tb.nbins = m_tbins.nbins();
@@ -361,6 +321,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // perform set_sampling_pre tasks in parallel:
     // should we make it into functions
     // create Device Views
+    Kokkos::Tools::pushRegion("createviews") ; 
     size_vt np_d(Kokkos::ViewAllocateWithoutInitializing("P_sizes"), npatches);
     size_vt nt_d(Kokkos::ViewAllocateWithoutInitializing("T_sized"), npatches);
     size_vt offsets_d(Kokkos::ViewAllocateWithoutInitializing("Offset_bins"), npatches * 2);
@@ -368,19 +329,22 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     db_vt pvecs_d(Kokkos::ViewAllocateWithoutInitializing("Pvecs"), npatches * MAX_P_SIZE);
     db_vt tvecs_d(Kokkos::ViewAllocateWithoutInitializing("Tvecs"), npatches * MAX_T_SIZE);
     db_vt qweights_d(Kokkos::ViewAllocateWithoutInitializing("Weights"), npatches * MAX_P_SIZE);
+    
 
+    Kokkos::Tools::popRegion() ; 
     // create host view , because it will be needed on host temperarily.
     // patch_v_h is delayed until we know the size (nt np)
-    auto nt_v_h = Kokkos::create_mirror_view(nt_d);
-    auto np_v_h = Kokkos::create_mirror_view(np_d);
-    auto patch_idx_v_h = Kokkos::create_mirror_view(patch_idx);
-    auto qweights_v_h = Kokkos::create_mirror_view(qweights_d);
-    auto offsets_v_h = Kokkos::create_mirror_view(offsets_d);
+    Kokkos::Tools::pushRegion("NTNP+Scan"); 
+    //auto nt_v_h = Kokkos::create_mirror_view(nt_d);
+   // auto np_v_h = Kokkos::create_mirror_view(np_d);
+   // auto patch_idx_v_h = Kokkos::create_mirror_view(patch_idx);
+   // auto qweights_v_h = Kokkos::create_mirror_view(qweights_d);
+   // auto offsets_v_h = Kokkos::create_mirror_view(offsets_d);
 
     // Kernel for calculate nt and np and offset_bin s for t and p for each gd
     int nsigma = m_nsigma;
-
-    Kokkos::parallel_for(npatches, KOKKOS_LAMBDA(int i) {
+    
+    Kokkos::parallel_for("NtNp", npatches, KOKKOS_LAMBDA(int i) {
         double t_s = gdata(i).t_ct - gdata(i).t_sigma * nsigma;
         double t_e = gdata(i).t_ct + gdata(i).t_sigma * nsigma;
         int t_ofb = max(int((t_s - tb.minval) / tb.binsize), 0);
@@ -399,13 +363,12 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
 
     //  kernel calculate index for patch  Can be mergged to previous kernel ?
     unsigned long result;  // total patches points
-    Kokkos::parallel_scan(npatches,
+    Kokkos::parallel_scan("Scan" ,npatches,
                           KOKKOS_LAMBDA(int i, unsigned long& lsum, const bool final) {
                               if (final) {
                                   patch_idx(i) = lsum;
                                   if (i == (npatches - 1)) {
                                       patch_idx(npatches) = lsum + np_d(i) * nt_d(i);
-                                      //	 printf("np_d(i)=%d, nt_d(i)=%d lsum=%lu\n", np_d(i) , nt_d(i),lsum ) ;
                                   }
                               }
                               //  bool pr =true ;
@@ -420,36 +383,62 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
 
     // debug:
     std::cout << "total patch size: " << result << " WeightStrat: " << m_calcstrat << std::endl;
-
+    Kokkos::Tools::popRegion() ; 
+    Kokkos::Tools::pushRegion("patch view create");
     // Allocate space for patches on device
     fl_vt patch_d(Kokkos::ViewAllocateWithoutInitializing("Patches"), result);
+    Kokkos::Tools::popRegion() ; 
     // make view on host
-    auto patch_v_h = Kokkos::create_mirror_view(patch_d);
-
+    //auto patch_v_h = Kokkos::create_mirror_view(patch_d);
     // make a view pointing to random numbers
-    auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
+    Kokkos::Tools::pushRegion("normal view create");
+    int size = (result+255)/256 * 256 ; 
+    Kokkos::resize(m_normals, size );
+    Kokkos::Tools::popRegion() ; 
+    Kokkos::Tools::pushRegion("Random Number create");
+    int seed = 2020;
+    Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
+
+    Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+    //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
+    auto normals = m_normals;
+    Kokkos::Tools::popRegion() ;
 
     // decide weight calculation
     int weightstrat = m_calcstrat;
 
     // each team resposible for 1 GD , kernel calculate pvecs and tvecs
-    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches, Kokkos::AUTO);
-    Kokkos::parallel_for(policy, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
-        int ip = team.league_rank();
-        int it = team.team_rank();
+    //
+    Kokkos::Tools::pushRegion("vector caculation");
+    bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
+    //for AVX2 && GPU
+    int patches_per_team = is_host ? 1 : 16 ;
+    int team_size = is_host ?  1 : 16 ;
+    int vec_len = is_host ? 4 : 8 ;
+    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>((npatches+patches_per_team -1)/patches_per_team, team_size,vec_len );
+    //    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>((npatches+patches_per_team -1)/patches_per_team, Kokkos::AUTO );
+    Kokkos::parallel_for("PTvecs", policy, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
+       // int ip = team.league_rank()*patches_per_team+ team.team_rank() ;
+        //int it = team.team_rank();
+      int ip_start = team.league_rank()*patches_per_team;
+      int ip_end = (ip_start + patches_per_team) < npatches ? ip_start + patches_per_team : npatches ;
+      const double sqrt2 = sqrt(2.0);
+      //every thread  for 1 patch.
+      Kokkos::parallel_for(Kokkos::TeamThreadRange(team,ip_start,ip_end),[&](int ip) {
         double start_t = tb.minval + offsets_d(ip) * tb.binsize;
         double start_p = pb.minval + offsets_d(ip + npatches) * pb.binsize;
         int np = np_d(ip);
         int nt = nt_d(ip);
 
-        const double sqrt2 = sqrt(2.0);
 
         // Calculate Pvecs
+	
         if (np == 1) {
-            if (it == 0) pvecs_d(ip * MAX_P_SIZE) = 1.0;
-        }
+	   //Kokkos::single(Kokkos::PerThread(team),[&] () { pvecs_d(ip * MAX_P_SIZE) = 1.0; }) ;
+	    pvecs_d(ip * MAX_P_SIZE) = 1.0 ;
+        } 
         else {
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, np), [=](int& ii) {
+            Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, np), [=](int& ii) {
                 double step = pb.binsize;
                 double start = start_p;
                 double factor = sqrt2 * gdata(ip).p_sigma;
@@ -465,10 +454,10 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
 
         // Calculate tvecs
         if (nt == 1) {
-            if (it == 0) tvecs_d(ip * MAX_T_SIZE) = 1.0;
+		tvecs_d(ip * MAX_T_SIZE) = 1.0;
         }
         else {
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nt), [=](int& ii) {
+            Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, nt), [=](int& ii) {
                 double step = tb.binsize;
                 double start = start_t;
                 double factor = sqrt2 * gdata(ip).t_sigma;
@@ -477,16 +466,15 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                 double ef2 = 0.5 * erf(x + step / factor);
                 double val = ef2 - ef1;
                 tvecs_d(ip * MAX_T_SIZE + ii) = val;
-                //	   if(ip==0 && ii==0 ) printf("tvecs(0)=%f \n", val);
             });
         }
         // calculate weights
         if (weightstrat == 2) {
             if (gdata(ip).p_sigma == 0) {
-                if (it == 0) qweights_d(0) = (start_p + pb.binsize - gdata(ip).p_ct) / pb.binsize;
+		    Kokkos::single(Kokkos::PerThread(team),[&] (){ qweights_d(0) = (start_p + pb.binsize - gdata(ip).p_ct) / pb.binsize;}) ;
             }
             else {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, np), [=](int& ii) {
+                Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, np), [=](int& ii) {
                     double rel1 = (start_p + pb.binsize * ii - gdata(ip).p_ct) / gdata(ip).p_sigma;
                     double rel2 = rel1 + pb.binsize / gdata(ip).p_sigma;
                     double gaus1 = exp(-0.5 * rel1 * rel1);
@@ -498,16 +486,21 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                 });
             }
         }
+       });
     });
+    Kokkos::Tools::popRegion();
 
+    Kokkos::Tools::pushRegion("Set_sampling_batch fuct") ; 
+    wend = omp_get_wtime();
     set_sampling_bat( npatches, nt_d,  np_d,  patch_idx, pvecs_d , tvecs_d, patch_d, normals,gdata  ) ;
+    Kokkos::Tools::popRegion();
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
     wstart = omp_get_wtime();
     cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
 
     Kokkos::TeamPolicy<> policy_sa = Kokkos::TeamPolicy<>(npatches, Kokkos::AUTO);
-    Kokkos::parallel_for(policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
+    Kokkos::parallel_for("Atomic Add", policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
         int n = team.league_rank();
         int np = np_d(n);
         int nt = nt_d(n);
@@ -522,6 +515,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                              });
     });
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
+    Kokkos::Tools::popRegion() ;
     wend = omp_get_wtime();
     g_get_charge_vec_time_part3 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part3 running time : " << g_get_charge_vec_time_part3 << endl;
@@ -638,7 +632,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix(std::vector<Eigen::
 // a new function to generate the result for the entire frame ... 
 void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vector<std::tuple<int,int, double> > >& vec_vec_charge, std::vector<int>& vec_impact){
 
-  double wstart, wend, wstart2, wend2;
+  double wstart, wend ;
 
   wstart = omp_get_wtime();
   const auto ib = m_pimpos.impact_binning();
@@ -688,7 +682,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   wstart = omp_get_wtime();
 
   //set the size of gd view and create host view
-  unsigned int npatches = m_diffs.size() ;
+  int npatches = m_diffs.size() ;
   //typedef Kokkos::View<GenKokkos::GdData *  > gd_vt ;
   gd_vt gdata(Kokkos::ViewAllocateWithoutInitializing("Gdata"), npatches) ;
   auto gdata_h = Kokkos::create_mirror_view(gdata) ;
@@ -878,29 +872,6 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 
 
 
-/*
-  m_t_idx_h[0]=0 ;
-  m_p_idx_h[0]=0 ;
-  m_patch_idx_h[0]=0 ;
-  int max_patch_size = 0 ;
-  int patch_size =0 ;
-  for (auto diff : m_diffs){
-    if(diff->depo()->charge()==0) continue;
-    wstart2 = omp_get_wtime();
-    #ifdef HAVE_CUDA_INC
-    diff->set_sampling_CUDA(m_pvec_D, m_tvec_D, m_patch_D, m_rand_D, &m_Gen, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    #else
-    //diff->set_sampling(m_pvec, m_tvec, m_patch, m_normals, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    //diff->set_sampling(m_patch, m_normals, m_ptvecs, (double*)m_ptvecs_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    diff->set_sampling_pre(counter,patch_size,m_pvecs_h,m_tvecs_h,m_charges_h,m_p_idx_h,m_t_idx_h,m_patch_idx_h, m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    //diff->set_sampling(m_tbins, ib, m_nsigma, m_fluctuate, m_calcstrat);
-    #endif
-    wend2 = omp_get_wtime();
-    g_get_charge_vec_time_part4 = wend2 - wstart2;
-    counter ++;
-    max_patch_size = max_patch_size > patch_size ? max_patch_size : patch_size ;
-  }
-  */
   wend = omp_get_wtime();
   cout << "get_charge_vec() : set_sampling_pre() time " << wend- wstart<< endl;
 
@@ -1015,163 +986,6 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 #endif
 }
 
-/*
-std::tuple< Kokkos::View<float*>, Kokkos::View<unsigned long*> >
-GenKokkos::BinnedDiffusion_transform::set_sampling_bat(unsigned long npatches, int max_patch_size, const bool copy_DtoH) {
-
-
-  //create hostview from pointers
-  Kokkos::View<double*, Kokkos::HostSpace> pvecs_v_h(m_pvecs_h,m_p_idx_h[npatches]);
-  Kokkos::View<double*, Kokkos::HostSpace> tvecs_v_h(m_tvecs_h,m_t_idx_h[npatches]);
-  Kokkos::View<double*, Kokkos::HostSpace> charges_v_h(m_charges_h,npatches);
-  Kokkos::View<unsigned long*, Kokkos::HostSpace> p_idx_v_h(&m_p_idx_h[0],npatches+1) ;
-  Kokkos::View<unsigned long*, Kokkos::HostSpace> t_idx_v_h(&m_t_idx_h[0],npatches+1) ;
-  Kokkos::View<unsigned long*, Kokkos::HostSpace> patch_idx_v_h(&m_patch_idx_h[0],npatches+1) ;
-  Kokkos::View<float* , Kokkos::HostSpace> patches_v_h(&m_patch_h[0], m_patch_idx_h[npatches] ) ;
-
-  Kokkos::View<double*> sum_p_v(Kokkos::ViewAllocateWithoutInitializing("PatchSum"), npatches) ;
-
-  //Device Views
-  Kokkos::View<unsigned long * > p_idx(Kokkos::ViewAllocateWithoutInitializing("P_idx") , npatches+1) ;
-  Kokkos::View<unsigned long * > t_idx(Kokkos::ViewAllocateWithoutInitializing("T_idx") , npatches+1) ;
-  Kokkos::View<unsigned long * > patch_idx(Kokkos::ViewAllocateWithoutInitializing("Pat_idx") , npatches+1) ;
-  Kokkos::View<float * > patch_d(Kokkos::ViewAllocateWithoutInitializing("Patches") , m_patch_idx_h[npatches]) ;
-  Kokkos::View<double * > pvecs_d(Kokkos::ViewAllocateWithoutInitializing("Pvecs") , m_p_idx_h[npatches]) ;
-  Kokkos::View<double * > tvecs_d(Kokkos::ViewAllocateWithoutInitializing("Tvecs") , m_t_idx_h[npatches]) ;
-  Kokkos::View<double * > charges_d(Kokkos::ViewAllocateWithoutInitializing("Charges") , npatches) ;
-
-  //existing view, make a subview
-  auto normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)m_patch_idx_h[npatches] ) ) ;
-
-  //Copy of views 
-  Kokkos::deep_copy(p_idx, p_idx_v_h) ;
-  Kokkos::deep_copy(t_idx, t_idx_v_h) ;
-  Kokkos::deep_copy(patch_idx, patch_idx_v_h) ;
-  Kokkos::deep_copy(pvecs_d, pvecs_v_h) ;
-  Kokkos::deep_copy(tvecs_d, tvecs_v_h) ;
-  Kokkos::deep_copy(charges_d, charges_v_h) ;
-
-  bool fl = false ;
-  if( m_fluctuate) fl = true    ;
-
-    std::cout<<"Max Patch size : " << max_patch_size <<std::endl ;
-
-  bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
-
- // debug  is_host = false   ;
-  //kernel
-    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
-  if(is_host) {
-    Kokkos::parallel_for( policy,
-      KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
-       int ip=team.league_rank() ;
-      // if (ip==0) printf(" team size: %d", team.team_size()) ;
-
-       int np=p_idx(ip+1)-p_idx(ip) ;
-       int nt=t_idx(ip+1)-t_idx(ip) ;
-       int patch_size=np*nt ;
-       unsigned long p0 =patch_idx(ip) ;
-
-       double sum = 0.0 ;
-       Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, patch_size) ,
-         [=] (int & ii, double & lsum ) {
-            double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
-            patch_d(ii+p0) = (float) v ;
-            lsum += v ;
-         }, sum ) ;
-
-
-       double charge=charges_d(ip) ;
-       double charge_abs = abs(charge) ;
-//       int charge_sign = charge < 0  ? -1 :1 ;
-
-       Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, patch_size) ,
-         [=] ( int & ii ) {
-           patch_d(ii+p0) *= float(charge_abs/sum) ;
-         } ) ;
-
-      if( fl ){
-         int n=(int) charge_abs;
-         sum =0.0  ;
-
-         Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, patch_size) ,
-           [=] (int & ii, double & lsum ) {
-               double p =  patch_d(ii+p0)/charge_abs ;
-               double q = 1-p ;
-               double mu = n*p ;
-               double sigma = sqrt(p*q*n) ;
-               p = normals(ii+p0)*sigma + mu ;
-               lsum += p ;
-               }, sum ) ;
-
-         Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, patch_size) ,
-           [=] ( int & ii ) {
-             patch_d(ii+p0) *= (float) charge_abs/sum ;
-           } ) ;
-
-       }
-    } ) ;
-
-  } else {
-    Kokkos::parallel_for( policy, 
-      KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
-       int ip=team.league_rank() ;
-     //  if (ip==0) printf(" team size: %d", team.team_size()) ;
-      
-       int np=p_idx(ip+1)-p_idx(ip) ;
-       int nt=t_idx(ip+1)-t_idx(ip) ;
-       int patch_size=np*nt ;
-       unsigned long p0 =patch_idx(ip) ;
-
-       double sum = 0.0 ;
-
-       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
-         [=] (int & ii, double & lsum ) { 
-            double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
-	    patch_d(ii+p0) = (float) v ;
-	    lsum += v ;
-         }, sum ) ;
-
-
-       double charge=charges_d(ip) ;
-       double charge_abs = abs(charge) ;
-//       int charge_sign = charge < 0  ? -1 :1 ;
-
-       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
-	 [=] ( int & ii ) {
-           patch_d(ii+p0) *= float(charge_abs/sum) ;
-	 } ) ;
-       
-       if( fl ){
-	 int n=(int) charge_abs;
-         sum =0.0  ;
-
-         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
-           [=] (int & ii, double & lsum ) { 
-               double p =  patch_d(ii+p0)/charge_abs ;
-               double q = 1-p ;
-               double mu = n*p ;
-               double sigma = sqrt(p*q*n) ;
-               p = normals(ii+p0)*sigma + mu ;
-	       lsum += p ;
-               }, sum ) ;
-
-         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
-	   [=] ( int & ii ) {
-             patch_d(ii+p0) *= (float) charge_abs/sum ;
-	   } ) ;
-
-       }
-//       if(ip== 0 &&team.team_rank()==0 ) printf("team-size = %d,%dx%d \n", team.team_size() ,np,nt); 
-
-    } ) ;
-
-  }  
-  if (copy_DtoH==true) Kokkos::deep_copy(patches_v_h, patch_d );
-  return {patch_d, patch_idx};
-}
-*/
-//set_sampling_bat( npatches, nt_d,  np_d,  patch_idx, pvecs_d , tvecs_d, patch_d, m_mormals, gdata  ) ;
 
 void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long npatches,  
 		const size_vt nt_d ,
@@ -1182,6 +996,8 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 	        fl_vt patch_d,
 	        const db_vt normals,
 	        const gd_vt gdata ) {
+  Kokkos::Tools::pushRegion("set_sampling");
+
 
   bool fl = false ;
   if( m_fluctuate) fl = true    ;
@@ -1189,11 +1005,16 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 
   bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
 
- // debug  is_host = false   ;
+ // debug 
+  is_host = false   ;
+ // is_host = true   ;
   //kernel
+  //int team_size = is_host ?  1 : 16 ;
+  //int vec_len = is_host ? 4 : 8 ;
+
   Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(npatches,Kokkos::AUTO) ;
   if(is_host) {
-    Kokkos::parallel_for( policy,
+    Kokkos::parallel_for("set_sampling_bat_OMP",  policy,
       KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
        int ip=team.league_rank() ;
       // if (ip==0) printf(" team size: %d", team.team_size()) ;
@@ -1247,13 +1068,10 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
     } ) ;
 
   } else {
-    Kokkos::parallel_for( policy, 
+    Kokkos::parallel_for("Set_Sampling_BAT", policy, 
       KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type & team ){
        int ip=team.league_rank() ;
      //  if (ip==0) printf(" team size: %d", team.team_size()) ;
-      
-     ////  int np=p_idx(ip+1)-p_idx(ip) ;
-      //// int nt=t_idx(ip+1)-t_idx(ip) ;
        int np=np_d(ip) ;
        int nt=nt_d(ip) ;
        int patch_size=np*nt ;
@@ -1261,7 +1079,8 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 
        double sum = 0.0 ;
 
-       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+//       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+         Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team, patch_size) ,
          [=] (int & ii, double & lsum ) { 
  //     //      double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
             double v = pvecs_d(ip*MAX_P_SIZE+ ii%np)*tvecs_d(ip * MAX_T_SIZE + ii/np) ;
@@ -1276,7 +1095,8 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 //       int charge_sign = charge < 0  ? -1 :1 ;
 //   if(ip==0 ) printf("sum= %f, %f, %f %f %f %f \n", sum, normals(0), patch_d(0), charge_abs, pvecs_d(0),tvecs_d(0)  ) ;
 
-       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+       Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
+//       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
 	 [=] ( int & ii ) {
            patch_d(ii+p0) *= float(charge_abs/sum) ;
 	 } ) ;
@@ -1285,7 +1105,8 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 	 int n=(int) charge_abs;
          sum =0.0  ;
 
-         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
+         Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team, patch_size) ,
+//         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
            [=] (int & ii, double & lsum ) { 
                double p =  patch_d(ii+p0)/charge_abs ;
                double q = 1-p ;
@@ -1295,7 +1116,8 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 	       lsum += p ;
                }, sum ) ;
 
-         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
+         Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
+//         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
 	   [=] ( int & ii ) {
              patch_d(ii+p0) *= (float) charge_abs/sum ;
 	   } ) ;
@@ -1306,6 +1128,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
     } ) ;
 
   }  
+    Kokkos::Tools::popRegion() ;
  
 //  Kokkos::deep_copy(patches_v_h, patch_d ) ;
 //  for(int n=0; n<100 ; n++) std::cout<<patches_v_h(n)<<std::endl ; 

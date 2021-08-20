@@ -315,8 +315,12 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     // now work on the charge part ...
     // trying to sampling ...
     double wstart = omp_get_wtime();
+    Kokkos::Tools::pushRegion("Zero_KokkosArray") ;
     KokkosArray::array_xxf f_data = KokkosArray::Zero<KokkosArray::array_xxf>(end_pitch - start_pitch + 2 * npad_pitch, m_end_tick - m_start_tick);;
+    Kokkos::Tools::popRegion();
+    Kokkos::Tools::pushRegion("GetChargeMaxtrix Function") ;
     m_bd.get_charge_matrix_kokkos(f_data, m_vec_impact, start_pitch, m_start_tick);
+    Kokkos::Tools::popRegion();
     // Kokkos::fence();
     // std::cout << KokkosArray::dump_2d_view(f_data, 10);
     double wend = omp_get_wtime();
