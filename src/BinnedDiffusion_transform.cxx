@@ -796,7 +796,19 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   auto patch_v_h = Kokkos::create_mirror_view(patch_d) ;
    
   // make a view pointing to random numbers
-  auto normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)result ) ) ;
+  //to normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)result ) ) ;
+  Kokkos::Tools::pushRegion("normal view create");
+  int size = (result+255)/256 * 256 ; 
+  Kokkos::resize(m_normals, size );
+  Kokkos::Tools::popRegion() ; 
+  Kokkos::Tools::pushRegion("Random Number create");
+  int seed = 2020;
+  Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
+
+  Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+  //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
+  auto normals = m_normals;
+  Kokkos::Tools::popRegion() ;
 
   //decide weight calculation
   int weightstrat=m_calcstrat ;

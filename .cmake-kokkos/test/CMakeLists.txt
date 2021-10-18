@@ -26,5 +26,5 @@ foreach(source_file IN LISTS all_execs)
       $ENV{WIRECELL_INC}
   )
  set_target_properties(${exec_name}
-                      PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA")
+	 PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA;-DEIGEN_DONT_VECTORIZE")
 endforeach()
