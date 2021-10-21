@@ -86,7 +86,6 @@ namespace WireCell {
         }
         inline array_xxc dft_cc(const array_xxc& in, int dim = 0)
         {
-            std::cout << "WIRECELL_KOKKOSARRAY_HIP" << std::endl;
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxc>(N0, N1, 0);
@@ -155,7 +154,6 @@ namespace WireCell {
         }
         inline array_xxc idft_cc(const array_xxc& in, int dim = 0)
         {
-            std::cout << "WIRECELL_KOKKOSARRAY_HIP" << std::endl;
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxc>(N0, N1, 0);
@@ -224,7 +222,6 @@ namespace WireCell {
         }
         inline array_xxf idft_cr(const array_xxc& in, int dim = 0)
         {
-            std::cout << "WIRECELL_KOKKOSARRAY_HIP" << std::endl;
             Index N0 = in.extent(0);
             Index N1 = in.extent(1);
             auto out = gen_2d_view<array_xxf>(N0, N1, 0);
@@ -247,9 +244,7 @@ namespace WireCell {
 	
 		//MakePlan
 	        status = hipfftMakePlanMany( plan, 1, n, inembed, (int) N0, 1, onembed, N0, 1, HIPFFT_C2R, (int) N0, &worksize);
-        	//std::cout<<"worksize= "<<worksize << std::endl ;
-		//std::cout<<"status=" << status <<","<< N1 << ","<<N0 << std::endl ;
-        	//assert(status == HIPFFT_SUCCESS) ;
+        	assert(status == HIPFFT_SUCCESS) ;
                 
 		//Excute
 		status = hipfftExecC2R( plan,  (float2 * )in.data(), (float *) out.data() ) ;
