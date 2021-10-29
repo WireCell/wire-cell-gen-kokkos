@@ -471,7 +471,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         // calculate weights
         if (weightstrat == 2) {
             if (gdata(ip).p_sigma == 0) {
-		    Kokkos::single(Kokkos::PerThread(team),[&] (){ qweights_d(0) = (start_p + pb.binsize - gdata(ip).p_ct) / pb.binsize;}) ;
+		    Kokkos::single(Kokkos::PerThread(team),[&] (){ qweights_d(ip*MAX_P_SIZE) = (start_p + pb.binsize - gdata(ip).p_ct) / pb.binsize;}) ;
             }
             else {
                 Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, np), [=](int& ii) {
@@ -482,7 +482,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                     double wt = -1.0 * gdata(ip).p_sigma / pb.binsize * (gaus2 - gaus1) / sqrt(2.0 * PI) /
                                     pvecs_d(ip * MAX_P_SIZE + ii) +
                                 (gdata(ip).p_ct - (start_p + (ii + 1) * pb.binsize)) / pb.binsize;
-                    qweights_d(ip*MAX_P_SIZE+ii) = wt;
+                    qweights_d(ip*MAX_P_SIZE+ii) = -wt;
                 });
             }
         }
@@ -864,7 +864,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
       //calculate weights
       if(weightstrat == 2 ) { 
 	if(gdata(ip).p_sigma==0 ) {
-		if(it == 0 ) qweights_d(0)= (start_p + pb.binsize -gdata(ip).p_ct )/pb.binsize ;
+		if(it == 0 ) qweights_d(ip*MAX_P_SIZE)= (start_p + pb.binsize -gdata(ip).p_ct )/pb.binsize ;
 	} else {	
           Kokkos::parallel_for(Kokkos::TeamThreadRange(team, np) ,
            [=] (int & ii ) {
@@ -873,7 +873,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
              double gaus1 = exp(-0.5*rel1*rel1)  ;
              double gaus2 = exp(-0.5*rel2*rel2) ;
              double wt = -1.0 * gdata(ip).p_sigma/pb.binsize * (gaus2- gaus1) /sqrt(2.0 * PI )/pvecs_d(ip*MAX_P_SIZE + ii ) + (gdata(ip).p_ct - (start_p + (ii+1)* pb.binsize))/pb.binsize ;
-             qweights_d(ip*MAX_P_SIZE + ii ) = wt ;
+             qweights_d(ip*MAX_P_SIZE + ii ) = -wt ;
 
          } ) ;
 	}
@@ -1013,7 +1013,6 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 
   bool fl = false ;
   if( m_fluctuate) fl = true    ;
-
 
   bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
 
