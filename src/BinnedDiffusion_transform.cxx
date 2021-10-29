@@ -481,8 +481,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                     double gaus2 = exp(-0.5 * rel2 * rel2);
                     double wt = -1.0 * gdata(ip).p_sigma / pb.binsize * (gaus2 - gaus1) / sqrt(2.0 * PI) /
                                     pvecs_d(ip * MAX_P_SIZE + ii) +
-                                gdata(ip).p_ct - (start_p + (ii + 1) * pb.binsize) / pb.binsize;
-                    qweights_d(ip) = wt;
+                                (gdata(ip).p_ct - (start_p + (ii + 1) * pb.binsize)) / pb.binsize;
+                    qweights_d(ip*MAX_P_SIZE+ii) = wt;
                 });
             }
         }
@@ -872,8 +872,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
              double rel2 = rel1+  pb.binsize /gdata(ip).p_sigma ;
              double gaus1 = exp(-0.5*rel1*rel1)  ;
              double gaus2 = exp(-0.5*rel2*rel2) ;
-             double wt = -1.0 * gdata(ip).p_sigma/pb.binsize * (gaus2- gaus1) /sqrt(2.0 * PI )/pvecs_d(ip*MAX_P_SIZE + ii ) + gdata(ip).p_ct - (start_p + (ii+1)* pb.binsize)/pb.binsize ;
-             qweights_d(ip) = wt ;
+             double wt = -1.0 * gdata(ip).p_sigma/pb.binsize * (gaus2- gaus1) /sqrt(2.0 * PI )/pvecs_d(ip*MAX_P_SIZE + ii ) + (gdata(ip).p_ct - (start_p + (ii+1)* pb.binsize))/pb.binsize ;
+             qweights_d(ip*MAX_P_SIZE + ii ) = wt ;
 
          } ) ;
 	}
@@ -1051,11 +1051,11 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 ////       double charge=charges_d(ip) ;
        double charge=gdata(ip).charge ;
        double charge_abs = abs(charge) ;
-//       int charge_sign = charge < 0  ? -1 :1 ;
+       int charge_sign = charge < 0  ? -1 :1 ;
 
        Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, patch_size) ,
          [=] ( int & ii ) {
-           patch_d(ii+p0) *= float(charge_abs/sum) ;
+           patch_d(ii+p0) *= float(charge/sum) ;
          } ) ;
 
       if( fl ){
@@ -1064,7 +1064,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
 
          Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, patch_size) ,
            [=] (int & ii, double & lsum ) {
-               double p =  patch_d(ii+p0)/charge_abs ;
+               double p =  patch_d(ii+p0)/charge ;
                double q = 1-p ;
                double mu = n*p ;
                double sigma = sqrt(p*q*n) ;
@@ -1073,7 +1073,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
                }, sum ) ;
          Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, patch_size) ,
            [=] ( int & ii ) {
-             patch_d(ii+p0) *= (float) charge_abs/sum ;
+             patch_d(ii+p0) *= (float) charge_abs/sum  ;
            } ) ;
 
        }
@@ -1104,23 +1104,24 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
    ////    double charge=charges_d(ip) ;
        double charge=gdata(ip).charge ;
        double charge_abs = abs(charge) ;
-//       int charge_sign = charge < 0  ? -1 :1 ;
+       int charge_sign = charge < 0  ? -1 :1 ;
 //   if(ip==0 ) printf("sum= %f, %f, %f %f %f %f \n", sum, normals(0), patch_d(0), charge_abs, pvecs_d(0),tvecs_d(0)  ) ;
 
        Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
 //       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
 	 [=] ( int & ii ) {
-           patch_d(ii+p0) *= float(charge_abs/sum) ;
+           patch_d(ii+p0) *= float(charge/sum) ;
 	 } ) ;
        
        if( fl ){
+       //if( 0 ){
 	 int n=(int) charge_abs;
          sum =0.0  ;
 
          Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team, patch_size) ,
 //         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team, patch_size) ,
            [=] (int & ii, double & lsum ) { 
-               double p =  patch_d(ii+p0)/charge_abs ;
+               double p =  patch_d(ii+p0)/charge ;
                double q = 1-p ;
                double mu = n*p ;
                double sigma = sqrt(p*q*n) ;
@@ -1131,7 +1132,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
          Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
 //         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,
 	   [=] ( int & ii ) {
-             patch_d(ii+p0) *= (float) charge_abs/sum ;
+             patch_d(ii+p0) *= (float) charge_abs/sum  ;
 	   } ) ;
 
        }
