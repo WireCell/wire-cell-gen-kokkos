@@ -57,7 +57,7 @@ extern size_t g_total_sample_size;
 
 template <class GeneratorPool>
 struct generate_random {
-    Kokkos::View<double*> normals; // Normal distribution N(0,1)
+    Kokkos::View<double**> normals; // Normal distribution N(0,1)
     GeneratorPool rand_pool1;
     GeneratorPool rand_pool2;
     int samples;
@@ -67,7 +67,7 @@ struct generate_random {
 
 
     generate_random(Kokkos::View<double*> normals_, GeneratorPool rand_pool1_, GeneratorPool rand_pool2_, int samples_)
-        : normals(normals_), rand_pool1(rand_pool1_), rand_pool2(rand_pool2_), samples(samples_), range_min(1) {
+        : normals(normals_.data(),normals_.extent(0)/samples_,samples_), rand_pool1(rand_pool1_), rand_pool2(rand_pool2_), samples(samples_), range_min(1) {
         //range_max1 = rand_pool1.get_state().max();
         //range_max2 = rand_pool2.get_state().max();
         range_max1 = 0xffffffffffffffffULL-1;
@@ -78,17 +78,17 @@ struct generate_random {
     void operator()(int i) const {
         //*
         typename GeneratorPool::generator_type rand_gen1 = rand_pool1.get_state();
-        typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
+        // typename GeneratorPool::generator_type rand_gen2 = rand_pool2.get_state();
 
         for (int k = 0; k < samples/2; k++) {
             double u1 = (double) rand_gen1.urand64(range_min, range_max1) / range_max1;
-            double u2 = (double) rand_gen2.urand64(range_min, range_max2) / range_max2;
-            normals(i * samples + 2*k)     = sqrt(-2*log(u1)) * cos(2*PI*u2);
-            normals(i * samples + 2*k + 1) = sqrt(-2*log(u1)) * sin(2*PI*u2);
+            double u2 = (double) rand_gen1.urand64(range_min, range_max2) / range_max2;
+            normals(i,2*k)     = sqrt(-2*log(u1)) * cos(2*PI*u2);
+            normals(i,2*k + 1) = sqrt(-2*log(u1)) * sin(2*PI*u2);
         }
 
         rand_pool1.free_state(rand_gen1);
-        rand_pool2.free_state(rand_gen2);
+        // rand_pool2.free_state(rand_gen2);
         //*/
     }
    
@@ -170,6 +170,7 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
     Kokkos::Random_XorShift64_Pool<> rand_pool2(seed+1);
     Kokkos::resize(m_normals, size * samples);
 
+    // TODO: assert() if size*samples % 256 != 0
     Kokkos::parallel_for(size*samples/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool2, 256));
 }
 
@@ -504,25 +505,32 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
     wstart = omp_get_wtime();
-    cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
+    // cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
+    // std::cout << "yuhw: DEBUG: npatches: " << npatches << std::endl;
+    // std::cout << "yuhw: DEBUG: np_d: " << KokkosArray::dump_1d_view(np_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: nt_d: " << KokkosArray::dump_1d_view(nt_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: offsets_d: " << KokkosArray::dump_1d_view(offsets_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: patch_idx: " << KokkosArray::dump_1d_view(patch_idx,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: patch_d: " << KokkosArray::dump_1d_view(patch_d,10000) << std::endl;
 
     Kokkos::TeamPolicy<> policy_sa = Kokkos::TeamPolicy<>(npatches, Kokkos::AUTO);
-    Kokkos::parallel_for(policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
+    Kokkos::parallel_for("ScatterAdd", policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
         int n = team.league_rank();
         int np = np_d(n);
         int nt = nt_d(n);
-        int p = offsets_d(npatches + n);
-        int t = offsets_d(n);
+        int p = offsets_d(npatches + n)-start_pitch;
+        int t = offsets_d(n)-start_tick;
         int patch_size=np*nt ;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size),
                              [=] (const int& i) {
                                  auto idx = patch_idx(n) + i;
                                  float v = patch_d(idx);
-                                 Kokkos::atomic_add(&out(p + i/np, t + i%np), v);
+                                 Kokkos::atomic_add(&out(p+i%np, t+i/np), v);
                              });
     });
-    // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
+
     wend = omp_get_wtime();
+    // std::cout << "yuhw: DEBUG: out: " << KokkosArray::dump_2d_view(out,10000) << std::endl;
     g_get_charge_vec_time_part3 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part3 running time : " << g_get_charge_vec_time_part3 << endl;
     cout << "get_charge_matrix_kokkos(): set_sampling() running time : " << g_get_charge_vec_time_part4
@@ -948,13 +956,18 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     //const int nt = patch.cols();
     const int np = np_v_h(idx);
     const int nt = nt_v_h(idx);
+    std::cout << "DEBUG: "
+    << " imp offset: " << poffset_bin << ", " << toffset_bin
+    << " ch offset: " << map_imp_ch[poffset_bin] << ", " << toffset_bin
+    << std::endl;
 
     
     for (int pbin = 0; pbin != np; pbin++){
       int abs_pbin = pbin + poffset_bin;
       if (abs_pbin < min_imp || abs_pbin >= max_imp) continue;
      // double weight = qweight[pbin];
-      double weight = qweights_v_h(pbin + idx*MAX_P_SIZE) ;
+      //double weight = qweights_v_h(pbin + idx*MAX_P_SIZE) ;
+      double weight = 1.0 ;
       auto const channel = map_imp_ch[abs_pbin];
       auto const redimp = map_imp_redimp[abs_pbin];
       auto const array_num_redimp = map_redimp_vec[redimp];
@@ -1000,6 +1013,14 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     diff->clear_sampling();
     idx++ ;
   }
+    std::cout << "yuhw: get_charge_vec dump: \n";
+    for (size_t redimp=0; redimp<vec_vec_charge.size(); ++redimp) {
+        std::cout << "redimp: " << redimp << std::endl;
+        auto v = vec_vec_charge[redimp];
+        for (auto t : v) {
+            std::cout << get<0>(t) << ", " << get<1>(t) << ", " << get<2>(t) << "\n";
+        }
+    }
   wend = omp_get_wtime();
   g_get_charge_vec_time_part3 = wend - wstart;
   cout << "get_charge_vec() : part3 running time : " << g_get_charge_vec_time_part3 << endl;
