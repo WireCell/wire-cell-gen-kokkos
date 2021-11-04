@@ -37,8 +37,8 @@ namespace WireCell {
         template <class ViewType>
         inline ViewType gen_1d_view(const Index N0, const Scalar val = 0)
         {
-            ViewType ret("ret", N0);
-            Kokkos::parallel_for(N0, KOKKOS_LAMBDA(const Index& i0) { ret(i0) = val; });
+            ViewType ret(Kokkos::view_alloc("ret", Kokkos::WithoutInitializing), N0);
+            Kokkos::deep_copy(ret, val);
             return ret;
         }
 
@@ -46,10 +46,8 @@ namespace WireCell {
         template <class ViewType>
         inline ViewType gen_2d_view(const Index N0, const Index N1, const Scalar val = 0)
         {
-            ViewType ret("ret", N0, N1);
-            Kokkos::parallel_for("gen_2d_view",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = val; });
+            ViewType ret(Kokkos::view_alloc("ret", Kokkos::WithoutInitializing), N0, N1);
+            Kokkos::deep_copy(ret, val);
             return ret;
         }
         template <class ViewType>
@@ -63,7 +61,7 @@ namespace WireCell {
         inline std::string dump_2d_view(const ViewType& A, const Index length_limit = 20)
         {
             std::stringstream ss;
-            ss << typeid(ViewType).name() << ":\n";
+            ss << typeid(ViewType).name() << ", shape: {" << A.extent(0) << ", " << A.extent(1) << "} :\n";
 
             auto h_A = Kokkos::create_mirror_view(A);
             Kokkos::deep_copy(h_A, A);
@@ -116,7 +114,7 @@ namespace WireCell {
         inline std::string dump_1d_view(const ViewType& A, const Index length_limit = 20)
         {
             std::stringstream ss;
-            ss << typeid(ViewType).name() << ":\n";
+            ss << typeid(ViewType).name() << ", shape: {" << A.extent(0) << "} :\n";
 
             auto h_A = Kokkos::create_mirror_view(A);
             Kokkos::deep_copy(h_A, A);
@@ -152,10 +150,10 @@ namespace WireCell {
     }  // namespace KokkosArray
 }  // namespace WireCell
 
-#ifdef KOKKOS_ENABLE_CUDA
-#include "WireCellGenKokkos/KokkosArray_cuda.h"
-#else
+// #ifdef KOKKOS_ENABLE_CUDA
+// #include "WireCellGenKokkos/KokkosArray_cuda.h"
+// #else
 #include "WireCellGenKokkos/KokkosArray_fftw.h"
-#endif
+// #endif
 
 #endif
