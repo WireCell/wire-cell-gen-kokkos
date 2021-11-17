@@ -261,7 +261,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // map between impact # to reduced impact #
     std::map<int, int> map_imp_redimp;
 
-    std::cout << "yuhw: " << rb.nbins() << std::endl;
+    // std::cout << "yuhw: " << rb.nbins() << std::endl;
     for (int wireind = 0; wireind != rb.nbins(); wireind++) {
         int wire_imp_no = m_pimpos.wire_impact(wireind);
         std::pair<int, int> imps_range = m_pimpos.wire_impacts(wireind);
@@ -941,10 +941,10 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     //const int nt = patch.cols();
     const int np = np_v_h(idx);
     const int nt = nt_v_h(idx);
-    std::cout << "DEBUG: "
-    << " imp offset: " << poffset_bin << ", " << toffset_bin
-    << " ch offset: " << map_imp_ch[poffset_bin] << ", " << toffset_bin
-    << std::endl;
+    // std::cout << "DEBUG: "
+    // << " imp offset: " << poffset_bin << ", " << toffset_bin
+    // << " ch offset: " << map_imp_ch[poffset_bin] << ", " << toffset_bin
+    // << std::endl;
 
     
     for (int pbin = 0; pbin != np; pbin++){
@@ -998,14 +998,14 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     diff->clear_sampling();
     idx++ ;
   }
-    std::cout << "yuhw: get_charge_vec dump: \n";
-    for (size_t redimp=0; redimp<vec_vec_charge.size(); ++redimp) {
-        std::cout << "redimp: " << redimp << std::endl;
-        auto v = vec_vec_charge[redimp];
-        for (auto t : v) {
-            std::cout << get<0>(t) << ", " << get<1>(t) << ", " << get<2>(t) << "\n";
-        }
-    }
+    // std::cout << "yuhw: get_charge_vec dump: \n";
+    // for (size_t redimp=0; redimp<vec_vec_charge.size(); ++redimp) {
+    //     std::cout << "redimp: " << redimp << std::endl;
+    //     auto v = vec_vec_charge[redimp];
+    //     for (auto t : v) {
+    //         std::cout << get<0>(t) << ", " << get<1>(t) << ", " << get<2>(t) << "\n";
+    //     }
+    // }
   wend = omp_get_wtime();
   g_get_charge_vec_time_part3 = wend - wstart;
   cout << "get_charge_vec() : part3 running time : " << g_get_charge_vec_time_part3 << endl;

@@ -28,12 +28,12 @@ bool GenKokkos::ImpactTransform::transform_vector()
 
     const auto pimpos = m_bd.pimpos();
 
-    std::cout << "yuhw: transform_vector: \n"
-    << " m_num_group: " << m_num_group
-    << " m_num_pad_wire: " << m_num_pad_wire
-    << " pitch: " << m_pir->pitch()
-    << " impact: " << m_pir->impact()
-    << std::endl;
+    // std::cout << "yuhw: transform_vector: \n"
+    // << " m_num_group: " << m_num_group
+    // << " m_num_pad_wire: " << m_num_pad_wire
+    // << " pitch: " << m_pir->pitch()
+    // << " impact: " << m_pir->impact()
+    // << std::endl;
     for (int i = 0; i != m_num_group; i++) {
         double rel_cen_imp_pos;
         if (i != m_num_group - 1) {
@@ -48,12 +48,12 @@ bool GenKokkos::ImpactTransform::transform_vector()
         for (int j = 0; j != m_pir->nwires(); j++) {
             map_resp[j - m_num_pad_wire] = m_pir->closest(rel_cen_imp_pos - (j - m_num_pad_wire) * m_pir->pitch());
             Waveform::compseq_t response_spectrum = map_resp[j - m_num_pad_wire]->spectrum();
-            std::cout
-            << " igroup: " << i
-            << " rel_cen_imp_pos: " << rel_cen_imp_pos
-            << " iwire: " << j
-            << " dist: " << rel_cen_imp_pos - (j - m_num_pad_wire) * m_pir->pitch()
-            << std::endl;
+            // std::cout
+            // << " igroup: " << i
+            // << " rel_cen_imp_pos: " << rel_cen_imp_pos
+            // << " iwire: " << j
+            // << " dist: " << rel_cen_imp_pos - (j - m_num_pad_wire) * m_pir->pitch()
+            // << std::endl;
         }
         m_vec_map_resp.push_back(map_resp);
 
@@ -258,7 +258,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
                     resp_f_w(end_ch - start_ch - 1 - irow + 2 * npad_wire, icol) = rs2[icol];
                 }
             }
-            std::cout << " vector resp: " << i << " : " << Array::idft_cr(resp_f_w, 0) << std::endl;
+            // std::cout << " vector resp: " << i << " : " << Array::idft_cr(resp_f_w, 0) << std::endl;
             // Do FFT on wire for response // slight larger
             resp_f_w = Array::dft_cc(resp_f_w, 1);  // Now becomes the f and f in both time and wire domain ...
             // multiply them together
@@ -351,10 +351,10 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     start_pitch = start_pitch - npad_pitch;
     end_pitch = end_pitch + npad_pitch;
     
-    std::cout << "yuhw: "
-    << " channel: { " << start_ch << ", " << end_ch << " } "
-    << " pitch: { " << start_pitch << ", " << end_pitch << " }"
-    << " tick: { " << m_start_tick << ", " << m_end_tick << " }\n";
+    // std::cout << "yuhw: "
+    // << " channel: { " << start_ch << ", " << end_ch << " } "
+    // << " pitch: { " << start_pitch << ", " << end_pitch << " }"
+    // << " tick: { " << m_start_tick << ", " << m_end_tick << " }\n";
 
     // now work on the charge part ...
     // trying to sampling ...
@@ -422,7 +422,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 // std::cout << "matrix: rs1_k: " << KokkosArray::dump_1d_view(rs1_k,10000);
                 Kokkos::parallel_for(m_end_tick - m_start_tick,
                                      KOKKOS_LAMBDA(const KokkosArray::Index& icol) { resp_f_w(0, icol) = rs1_k(icol); });
-                std::cout << "matrix: resp_f_w: " << KokkosArray::dump_2d_view(resp_f_w,10000);
+                // std::cout << "matrix: resp_f_w: " << KokkosArray::dump_2d_view(resp_f_w,10000);
             }
             // for (int irow = 0; irow != m_num_pad_wire; irow++) {
             //     Waveform::compseq_t rs1 = m_vec_map_resp.at(i)[irow + 1]->spectrum();
