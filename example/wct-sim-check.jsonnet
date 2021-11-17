@@ -25,7 +25,7 @@ local sim = sim_maker(params, tools);
 // Something close to APA 0 (smallest Y,Z)
 local close0 = {
   tail: wc.point(-3.000, 3.0, 1.000, wc.m),
-  head: wc.point(-3.000, 3.0, 2.000, wc.m),
+  head: wc.point(-3.000, 3.0, 1.001, wc.m),
 };
 
 local tracklist = [
