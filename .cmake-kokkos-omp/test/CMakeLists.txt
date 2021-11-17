@@ -15,7 +15,7 @@ foreach(source_file IN LISTS all_execs)
   configure_file("${source_dir}/${source_file}" ${renamed_source_file} COPYONLY)
   add_executable(${exec_name} ${renamed_source_file})
   target_link_directories(${exec_name} PRIVATE $ENV{WIRECELL_LIB})
-  target_link_libraries(${exec_name} PRIVATE WireCellUtil Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
+  target_link_libraries(${exec_name} PRIVATE WireCellUtil Kokkos::kokkos )
   target_include_directories(${exec_name}
     PRIVATE
       ${PROJECT_SOURCE_DIR}/../inc
@@ -25,6 +25,8 @@ foreach(source_file IN LISTS all_execs)
       $ENV{SPDLOG_INC}
       $ENV{WIRECELL_INC}
   )
- set_target_properties(${exec_name}
-	 PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA;-DEIGEN_DONT_VECTORIZE")
+
+set_target_properties(${exec_name}
+        PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA;-DEIGEN_FFTW_DEFAULT=1;-DEIGEN_DONT_VECTORIZE")
+
 endforeach()

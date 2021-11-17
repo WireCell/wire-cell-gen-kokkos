@@ -47,6 +47,9 @@
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
 
+#include <Kokkos_Core.hpp>
+#include <impl/Kokkos_Timer.hpp>
+
 WIRECELL_FACTORY(GenKokkosDepoTransform, WireCell::GenKokkos::DepoTransform, WireCell::IDepoFramer, WireCell::IConfigurable)
 
 using namespace WireCell;
@@ -143,11 +146,12 @@ WireCell::Configuration GenKokkos::DepoTransform::default_configuration() const
 
 bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointer& out)
 {
+    Kokkos::Timer timer0 ;
     if (!in) {
         out = nullptr;
         return true;
     }
-
+    
     auto depos = in->depos();
 
     Binning tbins(m_readout_time / m_tick, m_start_time, m_start_time + m_readout_time);
@@ -189,6 +193,7 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
 
         int iplane = -1;
         for (auto plane : face->planes()) {
+            double t0 = timer0.seconds() ;
             ++iplane;
 
             const Pimpos* pimpos = plane->pimpos();
@@ -200,6 +205,8 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 depo = modify_depo(plane->planeid(), depo);
                 bindiff.add(depo, depo->extent_long() / m_drift_speed, depo->extent_tran());
             }
+            double t1 = timer0.seconds() ;
+
 
             auto& wires = plane->wires();
 
@@ -212,8 +219,12 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             } else {
                 THROW(ValueError() << errmsg{"No transform function named: " + m_transform});
             }
+            double t2 = timer0.seconds() ;
 
             const int nwires = pimpos->region_binning().nbins();
+            std::cout<<"nwires: "<<nwires << " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
+            Kokkos::Timer timer ;
+
             for (int iwire = 0; iwire < nwires; ++iwire) {
                 auto wave = transform.waveform(iwire);
 
@@ -229,11 +240,13 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 auto trace = make_shared<SimpleTrace>(chid, tbin, charge);
                 traces.push_back(trace);
             }
+            std::cout<< "Nwire loop time: "<<timer.seconds()<<std::endl ;
         }
     }
 
     auto frame = make_shared<SimpleFrame>(m_frame_count, m_start_time, traces, m_tick);
     ++m_frame_count;
     out = frame;
+    std::cout<<"Depotransform::Operator() time: "<<timer0.seconds()<<std::endl ;
     return true;
 }
