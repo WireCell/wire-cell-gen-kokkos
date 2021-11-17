@@ -951,8 +951,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
       int abs_pbin = pbin + poffset_bin;
       if (abs_pbin < min_imp || abs_pbin >= max_imp) continue;
      // double weight = qweight[pbin];
-      //double weight = qweights_v_h(pbin + idx*MAX_P_SIZE) ;
-      double weight = 1.0 ;
+      double weight = qweights_v_h(pbin + idx*MAX_P_SIZE) ;
+      // double weight = 1.0 ;
       auto const channel = map_imp_ch[abs_pbin];
       auto const redimp = map_imp_redimp[abs_pbin];
       auto const array_num_redimp = map_redimp_vec[redimp];
