@@ -507,10 +507,12 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 resp_f_w_k_h(idx, i) = sp_f_reduced[i];
             }
         }
-        // auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
-        // std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
+
+        Kokkos::deep_copy(resp_f_w_k, resp_f_w_k_h);
         resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
-        Kokkos::deep_copy(resp_f_w_k_h, resp_f_w_k);
+        // auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
+        // resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
+        // std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
 
         auto data_c = KokkosArray::dft_rc(f_data, 0);
         data_c = KokkosArray::dft_cc(data_c, 1);
