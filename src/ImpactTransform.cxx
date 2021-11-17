@@ -171,6 +171,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
                     resp_f_w(end_ch - start_ch - 1 - irow + 2 * npad_wire, icol) = rs2[icol];
                 }
             }
+            // std::cout << " vector resp: " << i << " : " << Array::idft_cr(resp_f_w, 0) << std::endl;
 
             // Do FFT on wire for response // slight larger
             resp_f_w = Array::dft_cc(resp_f_w, 1);  // Now becomes the f and f in both time and wire domain ...
@@ -475,9 +476,16 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         int nimpact = m_pir->nwires() * (m_num_group - 1);
         assert(end_pitch - start_pitch >= nimpact);
         double max_impact = (0.5 + m_num_pad_wire) * m_pir->pitch();
+        // TODO this loop could be parallerized by seperating it into 2 parts
+        // 1, extract the m_pir into a Kokkos::Array first
+        // 2, do various operation in a parallerized fasion
         for (int jimp = 0; jimp < nimpact; ++jimp) {
             float impact = -max_impact + jimp * m_pir->impact();
+            // std::cout << "yuhw: jimp " << jimp << ", " << impact;
+            // to avoid exess of boundary.
+            // central is < 0, after adding 0.01 * m_pir->impact(), it is > 0
             impact += impact < 0 ? 0.01 * m_pir->impact() : -0.01 * m_pir->impact();
+            // std::cout << ", " << impact;
             auto ip = m_pir->closest(impact);
             Waveform::compseq_t sp_f = ip->spectrum();
             Waveform::realseq_t sp_t = Waveform::idft(sp_f);
@@ -487,23 +495,27 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 sp_t_reduced.at(icol) = sp_t[icol];
             }
             auto sp_f_reduced = Waveform::dft(sp_t_reduced);
-            // if (impact<0) continue;
-            int idx = impact < 0 ? end_pitch - start_pitch - (std::round(nimpact / 2.) - jimp)
-                                 : jimp - std::round(nimpact / 2.);
+            // 0 and right on the left; left on the right
+            // int idx = impact < 0 ? end_pitch - start_pitch - (std::round(nimpact / 2.) - jimp)
+            //                      : jimp - std::round(nimpact / 2.);
+            // 0 and left and the left; right on the right
+            int idx = impact < 0.1 * m_pir->impact() ? std::round(nimpact / 2.) - jimp
+                                 : end_pitch - start_pitch - (jimp - std::round(nimpact / 2.));
+            // std::cout << ", " << idx << std::endl;
             assert(idx >= 0 && idx < resp_f_w_k_h.extent(0));
             for (size_t i = 0; i < sp_f_reduced.size(); ++i) {
                 resp_f_w_k_h(idx, i) = sp_f_reduced[i];
             }
         }
-        auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
-        std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
+        // auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
+        // std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
         resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
         Kokkos::deep_copy(resp_f_w_k_h, resp_f_w_k);
 
         auto data_c = KokkosArray::dft_rc(f_data, 0);
         data_c = KokkosArray::dft_cc(data_c, 1);
 
-        // multiply them together
+        // S(f) * R(f)
         Kokkos::parallel_for(
             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {data_c.extent(0), data_c.extent(1)}),
             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
@@ -511,7 +523,10 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 // data_c(i0, i1) *= 1.0;
             });
 
+        // transfer wire to time domain
         data_c = KokkosArray::idft_cc(data_c, 1);
+
+        // extract M(channel) from M(impact)
         Kokkos::parallel_for(
             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {acc_data_f_w.extent(0), acc_data_f_w.extent(1)}),
             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
