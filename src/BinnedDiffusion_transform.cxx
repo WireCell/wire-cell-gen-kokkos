@@ -505,20 +505,23 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // std::cout << "yuhw: DEBUG: offsets_d: " << KokkosArray::dump_1d_view(offsets_d,10000) << std::endl;
     // std::cout << "yuhw: DEBUG: patch_idx: " << KokkosArray::dump_1d_view(patch_idx,10000) << std::endl;
     // std::cout << "yuhw: DEBUG: patch_d: " << KokkosArray::dump_1d_view(patch_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: qweights_d: " << KokkosArray::dump_1d_view(qweights_d,10000) << std::endl;
 
     Kokkos::TeamPolicy<> policy_sa = Kokkos::TeamPolicy<>(npatches, Kokkos::AUTO);
     Kokkos::parallel_for("ScatterAdd", policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
-        int n = team.league_rank();
-        int np = np_d(n);
-        int nt = nt_d(n);
-        int p = offsets_d(npatches + n)-start_pitch;
-        int t = offsets_d(n)-start_tick;
+        int ipatch = team.league_rank();
+        int np = np_d(ipatch);
+        int nt = nt_d(ipatch);
+        int p = offsets_d(npatches + ipatch)-start_pitch;
+        int t = offsets_d(ipatch)-start_tick;
         int patch_size=np*nt ;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size),
                              [=] (const int& i) {
-                                 auto idx = patch_idx(n) + i;
-                                 float v = patch_d(idx);
-                                 Kokkos::atomic_add(&out(p+i%np, t+i/np), v);
+                                 auto idx = patch_idx(ipatch) + i;
+                                 float charge = patch_d(idx);
+                                 double weight = qweights_d(i%np+ipatch*MAX_P_SIZE);
+                                 Kokkos::atomic_add(&out(p+i%np, t+i/np), (float)(charge*weight));
+                                 Kokkos::atomic_add(&out(p+i%np+1, t+i/np), (float)(charge*(1.-weight)));
                              });
     });
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
