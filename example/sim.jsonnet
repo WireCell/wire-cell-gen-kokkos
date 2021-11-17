@@ -169,7 +169,7 @@ local reco_fork = [
     g.pipeline([
                 bagger[n],
                 sn_pipes[n],
-                kokkos_test[n],
+                // kokkos_test[n],
                 hio_orig[n],
                 // nf_pipes[n],
                 // sp_pipes[n],

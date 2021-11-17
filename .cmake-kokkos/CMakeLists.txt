@@ -44,9 +44,9 @@ target_include_directories(WireCellGenKokkos
     $ENV{WIRECELL_INC}
 )
 set_target_properties(WireCellGenKokkos
-                      PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA")
+	PROPERTIES COMPILE_OPTIONS "-DEIGEN_NO_CUDA;-DEIGEN_DONT_VECTORIZE")
 
-target_link_directories(WireCellGenKokkos PRIVATE $ENV{JSONCPP_LIB} $ENV{WIRECELL_LIB})
-target_link_libraries(WireCellGenKokkos PRIVATE jsoncpp WireCellIface WireCellUtil Boost::headers Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
+target_link_directories(WireCellGenKokkos PRIVATE  $ENV{JSONCPP_LIB} $ENV{WIRECELL_LIB})
+target_link_libraries(WireCellGenKokkos PRIVATE  jsoncpp WireCellIface WireCellUtil Boost::headers Kokkos::kokkos ${CUDA_CUFFT_LIBRARIES})
 
 add_subdirectory(test)
