@@ -57,7 +57,7 @@ extern size_t g_total_sample_size;
 
 template <class GeneratorPool>
 struct generate_random {
-    Kokkos::View<double**> normals; // Normal distribution N(0,1)
+    Kokkos::View<double*> normals; // Normal distribution N(0,1)
     GeneratorPool rand_pool1;
     GeneratorPool rand_pool2;
     int samples;
@@ -522,7 +522,6 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                              });
     });
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
-    Kokkos::Tools::popRegion() ;
     wend = omp_get_wtime();
     // std::cout << "yuhw: DEBUG: out: " << KokkosArray::dump_2d_view(out,10000) << std::endl;
     g_get_charge_vec_time_part3 = wend - wstart;
