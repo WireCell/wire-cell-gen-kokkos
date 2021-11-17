@@ -13,13 +13,18 @@
 using Scalar = float;
 using Index = int;
 using Layout = Kokkos::LayoutLeft;
-using matrix_type = typename Kokkos::View<Scalar **, Layout>;
-using matrix_type_scatter = typename Kokkos::Experimental::ScatterView<Scalar **, Layout>;
+// using ExecutionSpace = Kokkos::Cuda;
+using ExecutionSpace = Kokkos::OpenMP;
+using matrix_type = typename Kokkos::View<Scalar **, Layout, ExecutionSpace>;
+using matrix_type_scatter =
+    typename Kokkos::Experimental::ScatterView<Scalar **, Layout, ExecutionSpace::device_type,
+                                               Kokkos::Experimental::ScatterSum,
+                                               Kokkos::Experimental::ScatterNonDuplicated>;
 
 matrix_type gen_2D_view(const int N0, const int N1, const Scalar val = 0)
 {
     matrix_type ret("ret", N0, N1);
-    Kokkos::parallel_for("setRet", Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+    Kokkos::parallel_for("setRet", Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>, ExecutionSpace>({0, 0}, {N0, N1}),
                          KOKKOS_LAMBDA(const int &i0, const int &i1) { ret(i0, i1) = val; });
     return ret;
 }
@@ -32,7 +37,7 @@ int scatter_add(matrix_type grid, const matrix_type patch, const int x, const in
     size_t N1 = patch.extent(1);
 
     Kokkos::parallel_for(
-        "scatter_add", Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+        "scatter_add", Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>, ExecutionSpace>({0, 0}, {N0, N1}),
         KOKKOS_LAMBDA(const int &i, const int &j) { Kokkos::atomic_add(&grid(x + i, y + j), patch(i, j)); });
 
     // for(size_t i=0; i<N0; ++i) {
@@ -95,7 +100,7 @@ double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const
     // std::srand(std::time(nullptr)); // current time as seed
     std::srand(0);  // using 0 as seed, repeatable
 
-    typedef Kokkos::View<Index *> ViewVectorIndexType;
+    typedef Kokkos::View<Index *, ExecutionSpace> ViewVectorIndexType;
     ViewVectorIndexType vec_x("vec_x", Npatch);
     ViewVectorIndexType vec_y("vec_y", Npatch);
     ViewVectorIndexType::HostMirror h_vec_x = Kokkos::create_mirror_view(vec_x);
@@ -113,7 +118,7 @@ double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const
     double time = 0;
     if (alg.compare("atomic_add") == 0) {
         Kokkos::parallel_for("ScAdd",
-                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>>({0, 0, 0}, {Npatch, M0, M1}),
+                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>, ExecutionSpace>({0, 0, 0}, {Npatch, M0, M1}),
                              KOKKOS_LAMBDA(const int &p, const int &i, const int &j) {
                                  auto x = vec_x[p];
                                  auto y = vec_y[p];
@@ -125,7 +130,7 @@ double quick_check(const int N0 = 20, const int N1 = 20, const int M0 = 2, const
     if (alg.compare("ScatterView") == 0) {
         matrix_type_scatter grid_scatter(grid);
         Kokkos::parallel_for("ScAdd",
-                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>>({0, 0, 0}, {Npatch, M0, M1}),
+                             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Left>, ExecutionSpace>({0, 0, 0}, {Npatch, M0, M1}),
                              KOKKOS_LAMBDA(const int &p, const int &i, const int &j) {
                                  auto x = vec_x[p];
                                  auto y = vec_y[p];
