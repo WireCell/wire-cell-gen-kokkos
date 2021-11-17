@@ -150,10 +150,18 @@ namespace WireCell {
     }  // namespace KokkosArray
 }  // namespace WireCell
 
-// #ifdef KOKKOS_ENABLE_CUDA
-// #include "WireCellGenKokkos/KokkosArray_cuda.h"
-// #else
+
+#ifdef KOKKOS_ENABLE_CUDA
+#include "WireCellGenKokkos/KokkosArray_cuda.h"
+#else
+
+#ifdef   KOKKOS_ENABLE_HIP
+#include "WireCellGenKokkos/KokkosArray_hip.h"
+#else
+
 #include "WireCellGenKokkos/KokkosArray_fftw.h"
 // #endif
+
+#endif
 
 #endif

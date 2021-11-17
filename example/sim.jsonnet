@@ -187,7 +187,7 @@ local reco_fork = [
                 bagger[n],
                 sn_pipes[n],
                 retagger[n],
-                kokkos_test[n],
+                // kokkos_test[n],
                 hio_orig[n],
                 // nf_pipes[n],
                 // sp_pipes[n],
