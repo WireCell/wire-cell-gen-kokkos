@@ -10,10 +10,6 @@
 namespace WireCell {
 
     namespace KokkosArray {
-        /**
-         * TODO:
-         *  - round trip norm not included yet
-         */
         inline array_xc dft(const array_xf& in)
         {
             Index N0 = in.extent(0);
@@ -33,7 +29,10 @@ namespace WireCell {
             cufftPlan1d(&plan, N0, CUFFT_C2R, 1);
             cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
             cufftDestroy(plan);
-            
+            Kokkos::parallel_for(N0, KOKKOS_LAMBDA(const KokkosArray::Index& i0) {
+                out(i0) /= N0;
+            });
+
             return out;
         }
         inline array_xxc dft_rc(const array_xxf& in, int dim = 0)
@@ -108,6 +107,9 @@ namespace WireCell {
                 cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2C, (int) N0);
                 cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
                 cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N1; });
             }
 
             if (dim == 1) {
@@ -117,6 +119,9 @@ namespace WireCell {
                 cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2C, (int) N1);
                 cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
                 cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N0; });
             }
 
             return out;
@@ -136,6 +141,9 @@ namespace WireCell {
                 cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2R, (int) N0);
                 cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
                 cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N1; });
             }
 
             if (dim == 1) {
@@ -145,6 +153,9 @@ namespace WireCell {
                 cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2R, (int) N1);
                 cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
                 cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N0; });
             }
 
             return out;
