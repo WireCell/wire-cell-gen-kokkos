@@ -73,7 +73,7 @@ function(params, tools) {
 
     ret : {
 
-        signal_pipelines: [g.pipeline([depos2traces[n], reframers[n],  digitizers[n]],
+        signal_pipelines: [g.pipeline([depos2traces[n], reframers[n],  /*digitizers[n]*/],
                                       name="simsigpipe-" + tools.anodes[n].name) for n in std.range(0, nanodes-1)],
 
         splusn_pipelines:  [g.pipeline([depos2traces[n], reframers[n], noises[n], digitizers[n]],

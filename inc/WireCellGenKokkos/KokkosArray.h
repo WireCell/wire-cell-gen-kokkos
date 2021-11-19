@@ -6,8 +6,6 @@
 #ifndef WIRECELL_KOKKOSARRAY
 #define WIRECELL_KOKKOSARRAY
 
-#include "WireCellUtil/Waveform.h"
-
 #include <Kokkos_Core.hpp>
 
 #include <string>
@@ -18,8 +16,16 @@ namespace WireCell {
     namespace KokkosArray {
         using Scalar = float;
         using Index = int;
-        using Layout = Kokkos::LayoutLeft;
+        using Layout = Kokkos::LayoutLeft; /// left layout -> column major
         using Space = Kokkos::DefaultExecutionSpace;
+
+        /// A real, 1D array
+        typedef Kokkos::View<Scalar*, Layout, Space> array_xf;
+        typedef Kokkos::View<Scalar*, Layout, Kokkos::HostSpace> array_xf_h;
+
+        /// A complex, 1D array
+        typedef Kokkos::View<Kokkos::complex<Scalar>*, Layout, Space> array_xc;
+        typedef Kokkos::View<Kokkos::complex<Scalar>*, Layout, Kokkos::HostSpace> array_xc_h;
 
         /// A real, 2D array
         typedef Kokkos::View<Scalar**, Layout, Space> array_xxf;
@@ -27,14 +33,21 @@ namespace WireCell {
         /// A complex, 2D array
         typedef Kokkos::View<Kokkos::complex<Scalar>**, Layout, Space> array_xxc;
 
+        /// Generate a 1D view initialized with given value.
+        template <class ViewType>
+        inline ViewType gen_1d_view(const Index N0, const Scalar val = 0)
+        {
+            ViewType ret(Kokkos::view_alloc("ret", Kokkos::WithoutInitializing), N0);
+            Kokkos::deep_copy(ret, val);
+            return ret;
+        }
+
         /// Generate a 2D view initialized with given value.
         template <class ViewType>
         inline ViewType gen_2d_view(const Index N0, const Index N1, const Scalar val = 0)
         {
-            ViewType ret("ret", N0, N1);
-            Kokkos::parallel_for("gen_2d_view",
-                                 Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
-                                 KOKKOS_LAMBDA(const Index& i0, const Index& i1) { ret(i0, i1) = val; });
+            ViewType ret(Kokkos::view_alloc("ret", Kokkos::WithoutInitializing), N0, N1);
+            Kokkos::deep_copy(ret, val);
             return ret;
         }
         template <class ViewType>
@@ -48,7 +61,7 @@ namespace WireCell {
         inline std::string dump_2d_view(const ViewType& A, const Index length_limit = 20)
         {
             std::stringstream ss;
-            ss << typeid(ViewType).name() << ":\n";
+            ss << typeid(ViewType).name() << ", shape: {" << A.extent(0) << ", " << A.extent(1) << "} :\n";
 
             auto h_A = Kokkos::create_mirror_view(A);
             Kokkos::deep_copy(h_A, A);
@@ -101,7 +114,7 @@ namespace WireCell {
         inline std::string dump_1d_view(const ViewType& A, const Index length_limit = 20)
         {
             std::stringstream ss;
-            ss << typeid(ViewType).name() << ":\n";
+            ss << typeid(ViewType).name() << ", shape: {" << A.extent(0) << "} :\n";
 
             auto h_A = Kokkos::create_mirror_view(A);
             Kokkos::deep_copy(h_A, A);
@@ -138,16 +151,12 @@ namespace WireCell {
 }  // namespace WireCell
 
 
-#ifdef KOKKOS_ENABLE_CUDA
-#include "WireCellGenKokkos/KokkosArray_cuda.h"
+#if defined KOKKOS_ENABLE_CUDA
+    #include "WireCellGenKokkos/KokkosArray_cuda.h"
+#elif defined KOKKOS_ENABLE_HIP
+    #include "WireCellGenKokkos/KokkosArray_hip.h"
 #else
-
-#ifdef   KOKKOS_ENABLE_HIP
-#include "WireCellGenKokkos/KokkosArray_hip.h"
-#else
-#include "WireCellGenKokkos/KokkosArray_fftw.h"
-#endif
-
+    #include "WireCellGenKokkos/KokkosArray_fftw.h"
 #endif
 
 #endif

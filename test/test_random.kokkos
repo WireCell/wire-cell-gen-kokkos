@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <sys/time.h>
+#include <random>
+#include <iomanip>
 
 #include <Kokkos_Core.hpp>
 
@@ -113,12 +115,43 @@ struct generate_normal_dist {
 void randomNumberTest();
 void normalRandomTest();
 
+void stlTest(const size_t N = 10000) {
+
+    std::random_device rd{};
+
+    // std::mt19937 gen_twister{rd()};
+    std::default_random_engine gen(rd());
+
+    std::normal_distribution<> dist{5,2};
+ 
+    Kokkos::Timer timer;
+    double* a = (double*) malloc(N * sizeof(double));
+    double* b = (double*) malloc(N * sizeof(double));
+    for(size_t n=0; n<N; ++n) {
+        a[n] = dist(gen);
+    }
+    std::cout << "OD: " << timer.seconds() << std::endl;
+
+    timer.reset();
+    for(size_t n=0; n<N; ++n) {
+        b[n] = a[n];
+    }
+    std::cout << "Pool: " << timer.seconds() << std::endl;
+
+    free(a);
+    free(b);
+}
+
 int main(int argc, char* argv[])
 {
+    size_t N = 10000;
+    if (argc > 1) N = atoi(argv[1]);
+
     Kokkos::initialize(argc, argv);
     {
-        randomNumberTest();
-        normalRandomTest();
+        // randomNumberTest();
+        // normalRandomTest();
+        stlTest(N);
     }
     Kokkos::finalize();
 
@@ -185,7 +218,6 @@ void normalRandomTest() {
     std::cout << normals.h_view(0) << std::endl;
 
 }
-
 
 
 

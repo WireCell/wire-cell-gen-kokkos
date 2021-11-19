@@ -127,6 +127,7 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
     Kokkos::Random_XorShift64_Pool<> rand_pool2(seed+1);
     Kokkos::resize(m_normals, size * samples);
 
+    // TODO: assert() if size*samples % 256 != 0
     Kokkos::parallel_for(size*samples/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool2, 256));
 }
 
@@ -260,7 +261,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // map between impact # to reduced impact #
     std::map<int, int> map_imp_redimp;
 
-    std::cout << "yuhw: " << rb.nbins() << std::endl;
+    // std::cout << "yuhw: " << rb.nbins() << std::endl;
     for (int wireind = 0; wireind != rb.nbins(); wireind++) {
         int wire_imp_no = m_pimpos.wire_impact(wireind);
         std::pair<int, int> imps_range = m_pimpos.wire_impacts(wireind);
@@ -497,26 +498,35 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
     wstart = omp_get_wtime();
-    cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
+    // cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
+    // std::cout << "yuhw: DEBUG: npatches: " << npatches << std::endl;
+    // std::cout << "yuhw: DEBUG: np_d: " << KokkosArray::dump_1d_view(np_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: nt_d: " << KokkosArray::dump_1d_view(nt_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: offsets_d: " << KokkosArray::dump_1d_view(offsets_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: patch_idx: " << KokkosArray::dump_1d_view(patch_idx,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: patch_d: " << KokkosArray::dump_1d_view(patch_d,10000) << std::endl;
+    // std::cout << "yuhw: DEBUG: qweights_d: " << KokkosArray::dump_1d_view(qweights_d,10000) << std::endl;
 
     Kokkos::TeamPolicy<> policy_sa = Kokkos::TeamPolicy<>(npatches, Kokkos::AUTO);
-    Kokkos::parallel_for("Atomic Add", policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
-        int n = team.league_rank();
-        int np = np_d(n);
-        int nt = nt_d(n);
-        int p = offsets_d(npatches + n);
-        int t = offsets_d(n);
+    Kokkos::parallel_for("ScatterAdd", policy_sa, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
+        int ipatch = team.league_rank();
+        int np = np_d(ipatch);
+        int nt = nt_d(ipatch);
+        int p = offsets_d(npatches + ipatch)-start_pitch;
+        int t = offsets_d(ipatch)-start_tick;
         int patch_size=np*nt ;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size),
                              [=] (const int& i) {
-                                 auto idx = patch_idx(n) + i;
-                                 float v = patch_d(idx);
-                                 Kokkos::atomic_add(&out(p + i/np, t + i%np), v);
+                                 auto idx = patch_idx(ipatch) + i;
+                                 float charge = patch_d(idx);
+                                 double weight = qweights_d(i%np+ipatch*MAX_P_SIZE);
+                                 Kokkos::atomic_add(&out(p+i%np, t+i/np), (float)(charge*weight));
+                                 Kokkos::atomic_add(&out(p+i%np+1, t+i/np), (float)(charge*(1.-weight)));
                              });
     });
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
-    Kokkos::Tools::popRegion() ;
     wend = omp_get_wtime();
+    // std::cout << "yuhw: DEBUG: out: " << KokkosArray::dump_2d_view(out,10000) << std::endl;
     g_get_charge_vec_time_part3 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part3 running time : " << g_get_charge_vec_time_part3 << endl;
     cout << "get_charge_matrix_kokkos(): set_sampling() running time : " << g_get_charge_vec_time_part4
@@ -931,6 +941,10 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     //const int nt = patch.cols();
     const int np = np_v_h(idx);
     const int nt = nt_v_h(idx);
+    // std::cout << "DEBUG: "
+    // << " imp offset: " << poffset_bin << ", " << toffset_bin
+    // << " ch offset: " << map_imp_ch[poffset_bin] << ", " << toffset_bin
+    // << std::endl;
 
     
     for (int pbin = 0; pbin != np; pbin++){
@@ -938,6 +952,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
       if (abs_pbin < min_imp || abs_pbin >= max_imp) continue;
      // double weight = qweight[pbin];
       double weight = qweights_v_h(pbin + idx*MAX_P_SIZE) ;
+      // double weight = 1.0 ;
       auto const channel = map_imp_ch[abs_pbin];
       auto const redimp = map_imp_redimp[abs_pbin];
       auto const array_num_redimp = map_redimp_vec[redimp];
@@ -983,6 +998,14 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     diff->clear_sampling();
     idx++ ;
   }
+    // std::cout << "yuhw: get_charge_vec dump: \n";
+    // for (size_t redimp=0; redimp<vec_vec_charge.size(); ++redimp) {
+    //     std::cout << "redimp: " << redimp << std::endl;
+    //     auto v = vec_vec_charge[redimp];
+    //     for (auto t : v) {
+    //         std::cout << get<0>(t) << ", " << get<1>(t) << ", " << get<2>(t) << "\n";
+    //     }
+    // }
   wend = omp_get_wtime();
   g_get_charge_vec_time_part3 = wend - wstart;
   cout << "get_charge_vec() : part3 running time : " << g_get_charge_vec_time_part3 << endl;
