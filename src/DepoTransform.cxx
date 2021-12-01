@@ -46,6 +46,7 @@
 #include "WireCellGenKokkos/BinnedDiffusion_transform.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
+#include "omp.h"
 
 #include <Kokkos_Core.hpp>
 #include <impl/Kokkos_Timer.hpp>
@@ -147,6 +148,8 @@ WireCell::Configuration GenKokkos::DepoTransform::default_configuration() const
 bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointer& out)
 {
     Kokkos::Timer timer0 ;
+    double td0(0.0), td1(0.0), td2(0.0), td3(.0), t00 ,t01 ;
+       double   t000 = omp_get_wtime() ;
     if (!in) {
         out = nullptr;
         return true;
@@ -154,9 +157,12 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
     
     auto depos = in->depos();
 
+       double   t001 = omp_get_wtime() ;
+       std::cout<<"p000 : " << t001-t000 <<std::endl ;
     Binning tbins(m_readout_time / m_tick, m_start_time, m_start_time + m_readout_time);
     ITrace::vector traces;
     for (auto face : m_anode->faces()) {
+          t00 = omp_get_wtime() ;
         // Select the depos which are in this face's sensitive volume
         IDepo::vector face_depos, dropped_depos;
         auto bb = face->sensitive();
@@ -191,6 +197,8 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 dropped_depos.back()->time() / units::ms, ray.first / units::cm, ray.second / units::cm);
         }
 
+          t01 = omp_get_wtime() ;
+	  td3+=t01-t00 ;
         int iplane = -1;
         for (auto plane : face->planes()) {
             double t0 = timer0.seconds() ;
@@ -206,13 +214,19 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 bindiff.add(depo, depo->extent_long() / m_drift_speed, depo->extent_tran());
             }
             double t1 = timer0.seconds() ;
-
+            td0 += t1-t0 ;
 
             auto& wires = plane->wires();
 
             auto pir = m_pirs.at(iplane);
             GenKokkos::ImpactTransform transform(pir, bindiff);
-            if(m_transform.compare("transform_vector")==0) {
+
+	    //bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
+           
+	    //is_host=false ; 
+	    
+	    //if(m_transform.compare("transform_vector")==0 || is_host ) {
+	    if(m_transform.compare("transform_vector")==0 ) {
                 transform.transform_vector();
             } else if (m_transform.compare("transform_matrix")==0) {
                 transform.transform_matrix();
@@ -220,9 +234,10 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 THROW(ValueError() << errmsg{"No transform function named: " + m_transform});
             }
             double t2 = timer0.seconds() ;
+	    td1 += t2-t1 ;
 
             const int nwires = pimpos->region_binning().nbins();
-            std::cout<<"nwires: "<<nwires << " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
+            //std::cout<<"nwires: "<<nwires << " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
             Kokkos::Timer timer ;
 
             for (int iwire = 0; iwire < nwires; ++iwire) {
@@ -240,13 +255,22 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 auto trace = make_shared<SimpleTrace>(chid, tbin, charge);
                 traces.push_back(trace);
             }
-            std::cout<< "Nwire loop time: "<<timer.seconds()<<std::endl ;
+	    double t3 = timer.seconds() ;
+	    td2 += t3  ;
+            std::cout<<"BD_create_Time: "<< "plane " <<iplane <<" " <<t1-t0<< std::endl;
+	    std::cout<<"trasform_maxtrix_Time:  "<< "plane " <<iplane <<" "<<t2-t1<< std::endl ;
+            std::cout<< "nwire_loop_Time: "<<"plane " <<iplane<<" " <<t3<<std::endl ;
         }
     }
-
+    Kokkos::Timer  timer1 ;
     auto frame = make_shared<SimpleFrame>(m_frame_count, m_start_time, traces, m_tick);
     ++m_frame_count;
     out = frame;
-    std::cout<<"Depotransform::Operator() time: "<<timer0.seconds()<<std::endl ;
+    std::cout <<"f: "<< timer1.seconds() <<std::endl ;
+    std::cout<<"Total_DepoTransform::pt0_Time: "<< td3 <<std::endl ;
+    std::cout<<"Total_transform_maxtrix_Time: "<< td1 <<std::endl ;
+    std::cout<<"Total_BD_create_Time: "<< td0 <<std::endl ;
+    std::cout<<"Total_nwire_loop_long_resp_Time: "<< td2 <<std::endl ;
+    std::cout<<"Total_DepoTransform::Operator()_Time: "<<timer0.seconds()<<std::endl ;
     return true;
 }
