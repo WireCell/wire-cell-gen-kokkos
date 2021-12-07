@@ -187,7 +187,8 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
                 "t:[{},{}]ms, bb:[{}-->{}]cm",
                 m_anode->ident(), face->ident(), face_depos.size(), face_depos.front()->time() / units::ms,
                 face_depos.back()->time() / units::ms, ray.first / units::cm, ray.second / units::cm);
-        }
+        } else continue ;
+	
         if (dropped_depos.size()) {
             auto ray = bb.bounds();
             l->debug(
@@ -211,7 +212,9 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             GenKokkos::BinnedDiffusion_transform bindiff(*pimpos, tbins, m_nsigma, m_rng);
             for (auto depo : face_depos) {
                 depo = modify_depo(plane->planeid(), depo);
+		if (depo->charge() ==0 ) continue ;
                 bindiff.add(depo, depo->extent_long() / m_drift_speed, depo->extent_tran());
+		//std::cout<<"Depo: "<< depo->extent_long() <<" "<<depo->extent_tran() << " Drift_speed " <<m_drift_speed <<std::endl ;
             }
             double t1 = timer0.seconds() ;
             td0 += t1-t0 ;
@@ -221,11 +224,8 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             auto pir = m_pirs.at(iplane);
             GenKokkos::ImpactTransform transform(pir, bindiff);
 
-	    //bool is_host= std::is_same<Kokkos::DefaultExecutionSpace, Kokkos::DefaultHostExecutionSpace>::value ;
            
-	    //is_host=false ; 
 	    
-	    //if(m_transform.compare("transform_vector")==0 || is_host ) {
 	    if(m_transform.compare("transform_vector")==0 ) {
                 transform.transform_vector();
             } else if (m_transform.compare("transform_matrix")==0) {

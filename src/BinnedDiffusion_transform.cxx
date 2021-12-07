@@ -301,7 +301,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         gdata_h(ii).t_sigma = diff->time_desc().sigma;
         gdata_h(ii).p_sigma = diff->pitch_desc().sigma;
         //    if(diff->pitch_desc().sigma == 0 || diff->time_desc().sigma == 0  ) std::cout<<"sigma-0 patch: " <<ii <<
-        //    std::endl ;
+         //   std::endl ;
+	//std::cout<<"Gdata: " << ii<<" "<<gdata_h(ii).p_ct<<" "<<gdata_h(ii).t_ct<<" "<<gdata_h(ii).charge<<" "<<gdata_h(ii).t_sigma<<" "<<gdata_h(ii).p_sigma <<std::endl ;
         ii++;
     }
     Kokkos::Tools::popRegion() ;
@@ -362,6 +363,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         offsets_d(npatches + i) = p_ofb;
     });
 
+    std::cout<<"npatches= "<<npatches <<std::endl ;
     //  kernel calculate index for patch  Can be mergged to previous kernel ?
     unsigned long result;  // total patches points
     Kokkos::parallel_scan("Scan" ,npatches,
@@ -370,6 +372,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                   patch_idx(i) = lsum;
                                   if (i == (npatches - 1)) {
                                       patch_idx(npatches) = lsum + np_d(i) * nt_d(i);
+				      //printf("Scan:final: lsum=%lu i=%d np_d=%d nt_d=%d \n", lsum,i , np_d(i), nt_d(i) );
                                   }
                               }
                               //  bool pr =true ;
@@ -711,6 +714,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     gdata_h(ii).t_sigma=diff->time_desc().sigma ;
     gdata_h(ii).p_sigma=diff->pitch_desc().sigma ;
 //    if(diff->pitch_desc().sigma == 0 || diff->time_desc().sigma == 0  ) std::cout<<"sigma-0 patch: " <<ii << std::endl ; 
+    if( gdata_h(ii).charge == 0   ) std::cout<<" 0Charge: " <<ii << std::endl ; 
     ii++ ;
   }
 
@@ -921,10 +925,12 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   std::cout<<"debug: patch values: "<<m_diffs.size() << " "<< patch_idx_v_h[m_diffs.size()] <<std::endl ;
 
   g_get_charge_vec_time_part4 += wstart-wend ;
-//  for( long int jj=0 ; jj<m_patch_idx_h[m_diffs.size()] ; jj++ )
+  //for( long int jj=0 ; jj<m_patch_idx_h[m_diffs.size()] ; jj++ )
   //for( long int jj=0 ; jj<100 ; jj++ )
   //for( long int jj=0 ; jj<patch_idx_v_h[m_diffs.size()] ; jj++ )
-// 	  std::cout<<"PatchValues: "<<patch_v_h[jj] << std::endl ;
+// for ( int i1=0 ; i1< m_diffs.size() ; i1++) 
+//	for (long int jj= patch_idx_v_h[i1] ; jj< patch_idx_v_h[i1+1] ; jj++) 
+//  std::cout<<"PatchValues: "<<i1<< " " <<jj-patch_idx_v_h[i1]<<" "<< patch_v_h[jj] << std::endl ;
 
 
 /*
@@ -1126,6 +1132,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
          Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team, patch_size) ,
          [=] (int & ii, double & lsum ) { 
  //     //      double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
+     //  if( ip ==17897  ) printf("Patch17897: ii=%d pv=%e tv=%e \n", ii, pvecs_d(ip*MAX_P_SIZE + ii%np), tvecs_d(ip * MAX_T_SIZE+ ii/np) ) ;  
             double v = pvecs_d(ip*MAX_P_SIZE+ ii%np)*tvecs_d(ip * MAX_T_SIZE + ii/np) ;
 	    patch_d(ii+p0) = (float) v ;
 	    lsum += v ;
@@ -1136,7 +1143,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
        double charge=gdata(ip).charge ;
        double charge_abs = abs(charge) ;
        int charge_sign = charge < 0  ? -1 :1 ;
-//   if(ip==0 ) printf("sum= %f, %f, %f %f %f %f \n", sum, normals(0), patch_d(0), charge_abs, pvecs_d(0),tvecs_d(0)  ) ;
+ //  if(ip==17896 ) printf("sum= %e, %e, %e %e %e %e \n", sum, normals(p0), patch_d(p0), charge_abs, pvecs_d(ip),tvecs_d(ip)  ) ;
 
        Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
 //       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,

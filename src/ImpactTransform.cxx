@@ -345,7 +345,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     KokkosArray::array_xxf f_data = KokkosArray::Zero<KokkosArray::array_xxf>(end_pitch - start_pitch, m_end_tick - m_start_tick);;
     m_bd.get_charge_matrix_kokkos(f_data, m_vec_impact, start_pitch, m_start_tick);
     // Kokkos::fence();
-    // std::cout << KokkosArray::dump_2d_view(f_data, 10);
+    //std::cout << KokkosArray::dump_2d_view(f_data, 10);
     double wend = omp_get_wtime();
     td1 += wend-wstart ;
     g_get_charge_vec_time += wend - wstart;
@@ -442,7 +442,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 acc_data_f_w(i0, i1) = data_c((i0 + 1) * 10, i1);
             });
     }
-        Kokkos::fence() ;
+      // Kokkos::fence() ;
 
 	t3 =omp_get_wtime();
     acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
@@ -457,10 +457,10 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     double timer_fft = omp_get_wtime() - wstart;
     g_fft_time += timer_fft ;
     std::cout<<"Time for idft and pick: " << omp_get_wtime() -t2 << ", R*F: "<< t0-t2<< ", idft_cc1: " << t1-t0 << ", Pick: "<< t3-t1 << ", idft_cr0 : " << t4-t3<< std::endl ; 
+    std::cout<<"m_decon_data.sum: "<<m_decon_data.rows()<<"," <<m_decon_data.cols()<<",  "<< m_decon_data.sum() <<std::endl ;
     log->debug("ImpactTransform::transform_matrix: FFT: {}", timer_fft);
     timer_transform = omp_get_wtime() - timer_transform;
     log->debug("ImpactTransform::transform_matrix: Total: {}", timer_transform);
-
     log->debug("ImpactTransform::transform_matrix: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
     log->debug("ImpactTransform::transform_matrix: m_decon_data.sum(): {}", m_decon_data.sum());
     std::cout<<"Tranform_matrix_p0_Time: "<<td0 <<std::endl;
