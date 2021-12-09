@@ -64,6 +64,33 @@ namespace WireCell {
 
             return out;
         }
+        inline  void dft_rc(const array_xxf& in, array_xxc& out, int dim = 0)
+        {
+            std::cout << "WIRECELL_KOKKOSARRAY_CUDA" << std::endl;
+            Index N0 = in.extent(0);
+            Index N1 = in.extent(1);
+	    
+            cufftHandle plan;
+
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_R2C, (int) N0);
+                cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
+                cufftDestroy(plan);
+            }
+
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_R2C, (int) N1);
+                cufftExecR2C(plan, (cufftReal*) in.data(), (cufftComplex*) out.data());
+                cufftDestroy(plan);
+            }
+
+        }
         inline array_xxc dft_cc(const array_xxc& in, int dim = 0)
         {
             Index N0 = in.extent(0);
@@ -91,6 +118,31 @@ namespace WireCell {
             }
 
             return out;
+        }
+        inline void dft_cc(const array_xxc& in, array_xxc& out, int dim = 0)
+        {
+            Index N0 = in.extent(0);
+            Index N1 = in.extent(1);
+
+            cufftHandle plan;
+
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2C, (int) N0);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_FORWARD);
+                cufftDestroy(plan);
+            }
+
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2C, (int) N1);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_FORWARD);
+                cufftDestroy(plan);
+            }
         }
         inline array_xxc idft_cc(const array_xxc& in, int dim = 0)
         {
@@ -126,6 +178,38 @@ namespace WireCell {
 
             return out;
         }
+        inline void  idft_cc(const array_xxc& in,  array_xxc& out, int dim = 0)
+        {
+            Index N0 = in.extent(0);
+            Index N1 = in.extent(1);
+
+            cufftHandle plan;
+
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2C, (int) N0);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
+                cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N1; });
+            }
+
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2C, (int) N1);
+                cufftExecC2C(plan, (cufftComplex*) in.data(), (cufftComplex*) out.data(), CUFFT_INVERSE);
+                cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N0; });
+            }
+        }
+
         inline array_xxf idft_cr(const array_xxc& in, int dim = 0)
         {
             Index N0 = in.extent(0);
