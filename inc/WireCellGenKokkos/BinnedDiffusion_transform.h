@@ -166,7 +166,7 @@ namespace WireCell {
             //Kokkos::DualView<double[MAX_NPSS_DEVICE]> m_pvec;
             //Kokkos::DualView<double[MAX_NTSS_DEVICE]> m_tvec;
 //            Kokkos::View<float*> m_patch;
-            Kokkos::View<double*> m_normals;
+//            Kokkos::View<double*> m_normals;
 //            Kokkos::DualView<double*> m_ptvecs;
 	    //for batch
 //            Kokkos::View<double*> m_pvecs;

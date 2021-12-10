@@ -366,8 +366,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         // fine grained resp. matrix
         KokkosArray::array_xxc resp_f_w_k =
             KokkosArray::Zero<KokkosArray::array_xxc>(end_pitch - start_pitch, m_end_tick - m_start_tick);
-        auto resp_f_w_k_h = Kokkos::create_mirror_view(resp_f_w_k);
-	std::cout<<"Time for create resp_f_w_k "<<omp_get_wtime()-t0 <<std::endl ;
+        //auto resp_f_w_k_h = Kokkos::create_mirror_view(resp_f_w_k);
+	//std::cout<<"Time for create resp_f_w_k "<<omp_get_wtime()-t0 <<std::endl ;
         int nimpact = m_pir->nwires() * (m_num_group - 1);
         assert(end_pitch - start_pitch >= nimpact);
         double max_impact = (0.5 + m_num_pad_wire) * m_pir->pitch();
@@ -404,7 +404,7 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                                  : end_pitch - start_pitch - (jimp - std::round(nimpact / 2.));
             //std::cout << ", " << idx << " std::endl;
  //           std::cout << "idx " << idx << " sp_size "<<sp_f_reduced.size()<<  std::endl;
-            assert(idx >= 0 && idx < resp_f_w_k_h.extent(0));
+            //assert(idx >= 0 && idx < resp_f_w_k_h.extent(0));
 	    idx_h(jimp) = idx ;
             for (size_t i = 0; i < sp_f_reduced.size(); ++i) {
                 //resp_f_w_k_h(idx, i) = sp_f_reduced[i];

@@ -115,7 +115,7 @@ GenKokkos::BinnedDiffusion_transform::~BinnedDiffusion_transform() {
 }
 
 
-
+/*
 void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
@@ -131,6 +131,7 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
     Kokkos::parallel_for(size*samples/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool2, 256));
 }
 
+*/
 
 void GenKokkos::BinnedDiffusion_transform::clear_Device() {
 
@@ -397,15 +398,15 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // make a view pointing to random numbers
     Kokkos::Tools::pushRegion("normal view create");
     int size = (result+255)/256 * 256 ; 
-    Kokkos::resize(m_normals, size );
+    Kokkos::View <double *> normals(Kokkos::ViewAllocateWithoutInitializing("Normals"), size) ; 
     Kokkos::Tools::popRegion() ; 
     Kokkos::Tools::pushRegion("Random Number create");
     int seed = 2020;
     Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
 
-    Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+    Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(normals, rand_pool1, rand_pool1, 256));
     //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
-    auto normals = m_normals;
+    //auto normals = m_normals;
     Kokkos::Tools::popRegion() ;
 
     // decide weight calculation
@@ -818,16 +819,16 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   //to normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)result ) ) ;
   Kokkos::Tools::pushRegion("normal view create");
   int size = (result+255)/256 * 256 ; 
-  Kokkos::resize(m_normals, size );
+  Kokkos::View <double *> normals(Kokkos::ViewAllocateWithoutInitializing("Normals"), size) ; 
+  //Kokkos::resize(m_normals, size );
   Kokkos::Tools::popRegion() ; 
   Kokkos::Tools::pushRegion("Random Number create");
   Kokkos::Timer kt0;
   int seed = 2020;
   Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
 
-  Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+  Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(normals, rand_pool1, rand_pool1, 256));
   //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
-  auto normals = m_normals;
   Kokkos::Tools::popRegion() ;
   std::cout<<"Random number_Time : "<<kt0.seconds() <<std::endl ;
   //decide weight calculation
