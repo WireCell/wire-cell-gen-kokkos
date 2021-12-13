@@ -436,19 +436,13 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         Kokkos::deep_copy(idx_d, idx_h);
         Kokkos::deep_copy(sp_fs, sps_h );
 
-	std::cout<<"after deepcopy"<<std::endl ;
 	auto  sp_ts = KokkosArray::idft_cr(sp_fs,1) ;
-	std::cout<<"after idft for sp"<<std::endl ;
 	if (fillsize < m_end_tick - m_start_tick )  
 		Kokkos::resize(sp_ts, m_end_tick - m_start_tick, nimpact) ;
-	std::cout<<"after resize"<<std::endl ;
 	resp_redu = KokkosArray::dft_rc(sp_ts,1) ;
-	std::cout<<"dft for resized"<<std::endl ;
 	Kokkos::resize(sp_ts,0,0) ;
 	Kokkos::resize(sp_fs,0,0) ;
 
-//	t4 = omp_get_wtime();
-//
 	Kokkos::parallel_for( "FillResp",
             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {resp_redu.extent(0), resp_redu.extent(1)}),
             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
@@ -459,7 +453,6 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         auto data_d = KokkosArray::dft_rc(f_data, 0);
 	Kokkos::resize(f_data,0,0) ;
         auto data_c = KokkosArray::dft_cc(data_d, 1);
-//	t5 = omp_get_wtime();
 
         //data_d = KokkosArray::dft_cc(resp_f_w_k, 1);
         KokkosArray::dft_cc(resp_f_w_k, data_d, 1);
