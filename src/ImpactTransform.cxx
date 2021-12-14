@@ -296,7 +296,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
 bool GenKokkos::ImpactTransform::transform_matrix()
 {
     double timer_transform = omp_get_wtime();
-    double td0(0.0), td1(.0) , t0, t1, t2, t3, t4, t5,t6 ;
+    double td0(0.0), td1(.0)   ;
     // arrange the field response (210 in total, pitch_range/impact)
     // number of wires nwires ...
     m_num_group = std::round(m_pir->pitch() / m_pir->impact()) + 1;  // 11
@@ -359,15 +359,11 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     log->info("yuhw: start-end {}-{} {}-{} {} {}",m_start_ch, m_end_ch, m_start_tick, m_end_tick, acc_data_f_w.extent(0), acc_data_f_w.extent(1));
     log->info("yuhw: m_num_group {}",m_num_group);
 
-    t0 =omp_get_wtime() ;
-    std::cout<<"Time for Array creation acc_data_f_w  acc_data_t_w " << t0-wstart <<std::endl ;
     //  Convolution with Field Response
     {
         // fine grained resp. matrix
         KokkosArray::array_xxc resp_f_w_k =
             KokkosArray::Zero<KokkosArray::array_xxc>(end_pitch - start_pitch, m_end_tick - m_start_tick);
-        //auto resp_f_w_k_h = Kokkos::create_mirror_view(resp_f_w_k);
-	//std::cout<<"Time for create resp_f_w_k "<<omp_get_wtime()-t0 <<std::endl ;
         int nimpact = m_pir->nwires() * (m_num_group - 1);
         assert(end_pitch - start_pitch >= nimpact);
         double max_impact = (0.5 + m_num_pad_wire) * m_pir->pitch();
@@ -376,14 +372,11 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         // 2, do various operation in a parallerized fasion
 	
         Kokkos::View<int*> idx_d(Kokkos::ViewAllocateWithoutInitializing("Idx"),nimpact) ;
-	//KokkosArray::array_xxc resp_redu(Kokkos::ViewAllocateWithoutInitializing("resp_redu"),nimpact,m_end_tick - m_start_tick) ;
 	KokkosArray::array_xxc resp_redu(Kokkos::ViewAllocateWithoutInitializing("resp_redu"),m_end_tick - m_start_tick,nimpact) ;
 	auto idx_h = Kokkos::create_mirror_view(idx_d);
-//	auto resp_redu_h = Kokkos::create_mirror_view(resp_redu);
         
 	auto ip0 = m_pir->closest(-max_impact + 0.01 * m_pir->impact()) ;
         int sp_size = ip0->spectrum() .size() ;
-        //int sp_size=(m_pir->closest(-max_impact))->spectrum().size ;
 	KokkosArray::array_xxc sp_fs(Kokkos::ViewAllocateWithoutInitializing("SP_FS"),sp_size,nimpact) ;
 	auto sps_h = Kokkos::create_mirror_view(sp_fs);
 	int fillsize = min(sp_size, m_end_tick - m_start_tick );
@@ -397,19 +390,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
             // central is < 0, after adding 0.01 * m_pir->impact(), it is > 0
             impact += impact < 0 ? 0.01 * m_pir->impact() : -0.01 * m_pir->impact();
             auto ip = m_pir->closest(impact);
-            //std::cout << ", " << impact<<", sizeofWaveform: "<<ip->waveform().size() <<std::endl;
             Waveform::compseq_t sp_f = ip->spectrum();
 
-            /*moving calculation  to device
-            //Waveform::realseq_t sp_t = Waveform::idft(sp_f);
-            //Waveform::realseq_t sp_t_reduced(m_end_tick - m_start_tick, 0);
-            //for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
-            //    if (icol >= int(sp_t.size())) break;
-            //    sp_t_reduced.at(icol) = sp_t[icol];
-            //}
-	    //
-	    //auto sp_f_reduced = Waveform::dft(sp_t_reduced);
-            */
 
 	    memcpy((void*) &sps_h(0, jimp) , (void*) &sp_f[0] , sp_size*2*sizeof(float) ) ; 
            
@@ -419,20 +401,9 @@ bool GenKokkos::ImpactTransform::transform_matrix()
             // 0 and left and the left; right on the right
             int idx = impact < 0.1 * m_pir->impact() ? std::round(nimpact / 2.) - jimp
                                  : end_pitch - start_pitch - (jimp - std::round(nimpact / 2.));
-            //std::cout << ", " << idx << " std::endl;
- //           std::cout << "idx " << idx << " sp_size "<<sp_f_reduced.size()<<  std::endl;
-            //assert(idx >= 0 && idx < resp_f_w_k_h.extent(0));
 	    idx_h(jimp) = idx ;
-//            for (size_t i = 0; i < sp_f_reduced.size(); ++i) {
-                //resp_f_w_k_h(idx, i) = sp_f_reduced[i];
-//                resp_redu_h(jimp, i) = sp_f_reduced[i];
-//            }
         }
-        t1 = omp_get_wtime() ;
-        //std::cout<<"Time for calculate field response " << t1-t0 <<std::endl ;
 
-//        Kokkos::deep_copy(resp_f_w_k, resp_f_w_k_h);
-//        Kokkos::deep_copy(resp_redu, resp_redu_h);
         Kokkos::deep_copy(idx_d, idx_h);
         Kokkos::deep_copy(sp_fs, sps_h );
 
@@ -454,16 +425,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
 	Kokkos::resize(f_data,0,0) ;
         auto data_c = KokkosArray::dft_cc(data_d, 1);
 
-        //data_d = KokkosArray::dft_cc(resp_f_w_k, 1);
         KokkosArray::dft_cc(resp_f_w_k, data_d, 1);
 	resp_f_w_k = data_d ;
-        // auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
-        // resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
-        // std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
-//	t6 = omp_get_wtime();
-	t2 = omp_get_wtime(); 
-        //std::cout<<"Time for fft tick and pitch " << t2-t1 <<std::endl ;
-	//std::cout<< "Time for calculate field response " << t1-t0 <<", deep_copy(): "<< t4-t1 <<", resp_dft_cc1: " << t5-t4 << ", dft_rc: " << t6-t5 << ", dft_cc1: " << t2-t6<< std::endl ;
 
         // S(f) * R(f)
         Kokkos::parallel_for( "S*R",
@@ -472,13 +435,10 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 data_c(i0, i1) *= resp_f_w_k(i0, i1);
                 // data_c(i0, i1) *= 1.0;
             });
-        //Kokkos::fence() ;
-	t0 =omp_get_wtime();
         // transfer wire to time domain
 	KokkosArray::idft_cc(data_c,data_d, 1);
 	data_c = data_d ;
 	Kokkos::resize(resp_f_w_k, 0 , 0 ) ;
-	t1 =omp_get_wtime();
 
         // extract M(channel) from M(impact)
         Kokkos::parallel_for( "Pick ",
@@ -487,11 +447,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
                 acc_data_f_w(i0, i1) = data_c((i0 + 1) * 10, i1);
             });
     }
-      // Kokkos::fence() ;
 
-	t3 =omp_get_wtime();
     acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
-	t4 =omp_get_wtime();
 
     auto acc_data_t_w_h = Kokkos::create_mirror_view(acc_data_t_w);
     // std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,10) << std::endl;
@@ -501,7 +458,6 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     
     double timer_fft = omp_get_wtime() - wstart;
     g_fft_time += timer_fft ;
-    std::cout<<"Time for idft and pick: " << omp_get_wtime() -t2 << ", R*F: "<< t0-t2<< ", idft_cc1: " << t1-t0 << ", Pick: "<< t3-t1 << ", idft_cr0 : " << t4-t3<< std::endl ; 
     std::cout<<"m_decon_data.sum: "<<m_decon_data.rows()<<"," <<m_decon_data.cols()<<",  "<< m_decon_data.sum() <<std::endl ;
     log->debug("ImpactTransform::transform_matrix: FFT: {}", timer_fft);
     timer_transform = omp_get_wtime() - timer_transform;
