@@ -19,6 +19,7 @@ foreach(source_file IN LISTS all_execs)
   target_include_directories(${exec_name}
     PRIVATE
       ${PROJECT_SOURCE_DIR}/../inc
+      $ENV{FFTW_INC}
       $ENV{EIGEN_INC}
       $ENV{JSONCPP_INC}
       $ENV{JSONNET_INC}
