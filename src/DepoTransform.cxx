@@ -237,7 +237,7 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
 	    td1 += t2-t1 ;
 
             const int nwires = pimpos->region_binning().nbins();
-            //std::cout<<"nwires: "<<nwires << " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
+            std::cout<<"nwires: "<<nwires <<" nsamples: "<<tbins.nbins()<< " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
             Kokkos::Timer timer ;
 
             for (int iwire = 0; iwire < nwires; ++iwire) {

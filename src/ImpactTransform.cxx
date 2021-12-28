@@ -475,6 +475,7 @@ GenKokkos::ImpactTransform::~ImpactTransform() {}
 
 Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
 {
+    if(iwire==0) std::cout<<"s-ch,e_ch=" << m_start_ch<<" "<< m_end_ch<<" S_tick,E_tick=" << m_start_tick<<" " <<m_end_tick<<std::endl;
     const int nsamples = m_bd.tbins().nbins();
     if (iwire < m_start_ch || iwire >= m_end_ch) {
         return Waveform::realseq_t(nsamples, 0.0);
@@ -491,25 +492,25 @@ Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
             // std::cout << m_decon_data(iwire-m_start_ch,i-m_start_tick) << std::endl;
         }
 
-        // if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
-        //     // now convolute with the long-range response ...
-        //     const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
+        if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
+            // now convolute with the long-range response ...
+            const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
 
-        //     // nlength = nsamples;
+            //nlength = nsamples;
 
-        //     //   std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
+            //std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
 
-        //     wf.resize(nlength, 0);
-        //     Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
-        //     long_resp.resize(nlength, 0);
-        //     Waveform::compseq_t spec = Waveform::dft(wf);
-        //     Waveform::compseq_t long_spec = Waveform::dft(long_resp);
-        //     for (size_t i = 0; i != nlength; i++) {
-        //         spec.at(i) *= long_spec.at(i);
-        //     }
-        //     wf = Waveform::idft(spec);
-        //     wf.resize(nsamples, 0);
-        // }
+            wf.resize(nlength, 0);
+            Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
+            long_resp.resize(nlength, 0);
+            Waveform::compseq_t spec = Waveform::dft(wf);
+            Waveform::compseq_t long_spec = Waveform::dft(long_resp);
+           for (size_t i = 0; i != nlength; i++) {
+                spec.at(i) *= long_spec.at(i);
+            }
+            wf = Waveform::idft(spec);
+            wf.resize(nsamples, 0);
+         }
 
         return wf;
     }
