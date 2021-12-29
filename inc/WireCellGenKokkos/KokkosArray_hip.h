@@ -474,6 +474,77 @@ namespace WireCell {
 
             return out;
         }
+        inline void idft_cr(const array_xxc& in, array_xxf& out, int dim = 0)
+        {
+            Index N0 = in.extent(0);
+            Index N1 = in.extent(1);
+
+            hipfftHandle plan = NULL;
+            
+            hipfftResult status ;
+            hipError_t sync_status ;
+            
+	    if (dim == 0) {
+                int n[] = { (int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                size_t worksize = 0;
+                status = hipfftCreate(&plan);
+                assert(status == HIPFFT_SUCCESS) ;	
+	        // set to autoAllocate
+	        status = hipfftSetAutoAllocation( plan, 1);
+        	assert(status == HIPFFT_SUCCESS) ;
+	
+		//MakePlan
+	        status = hipfftMakePlanMany( plan, 1, n, inembed, (int) N0, 1, onembed, N0, 1, HIPFFT_C2R, (int) N0, &worksize);
+        	assert(status == HIPFFT_SUCCESS) ;
+                
+		//Excute
+		status = hipfftExecC2R( plan,  (float2 * )in.data(), (float *) out.data() ) ;
+		assert(status == HIPFFT_SUCCESS) ;
+
+		// Wait for execution to finish
+		sync_status=hipDeviceSynchronize() ;
+
+		//Destroy plan
+		hipfftDestroy(plan);
+		Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N1; });
+            }
+
+	    if (dim == 1) {
+                int n[] = {(int) N0};
+		int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                size_t worksize = 0;
+                status = hipfftCreate(&plan);
+                assert(status == HIPFFT_SUCCESS) ;
+                // set to autoAllocate
+                status = hipfftSetAutoAllocation( plan, 1);
+                assert(status == HIPFFT_SUCCESS) ;
+
+                //MakePlan
+                status = hipfftMakePlanMany( plan, 1, n, inembed, 1, N0, onembed, 1, N0, HIPFFT_C2R, (int) N1, &worksize);
+                //std::cout<<"worksize= "<<worksize << std::endl ;
+                assert(status == HIPFFT_SUCCESS) ;
+
+                //Excute
+                status = hipfftExecC2R( plan,  (float2 * )in.data(), (float *) out.data() ) ;
+                assert(status == HIPFFT_SUCCESS) ;
+
+                // Wait for execution to finish
+		sync_status=hipDeviceSynchronize() ;
+
+                //Destroy plan
+                hipfftDestroy(plan);
+
+		Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N0; });
+            }
+
+        }
     }  // namespace KokkosArray
 }  // namespace WireCell
 

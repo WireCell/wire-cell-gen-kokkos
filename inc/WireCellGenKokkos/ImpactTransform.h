@@ -26,6 +26,7 @@ namespace WireCell {
 
             std::vector<int> m_vec_impact;
             Array::array_xxf m_decon_data;
+            KokkosArray::array_xxf m_decon_data_v;
             int m_start_ch;
             int m_end_ch;
             int m_start_tick;
@@ -52,6 +53,7 @@ namespace WireCell {
 
             // fixme: this should be a forward iterator so that it may cal bd.erase() safely to conserve memory
             Waveform::realseq_t waveform(int wire) const;
+            KokkosArray::array_xxf waveform_v(int nwires)  const;
         };
 
     }  // namespace GenKokkos

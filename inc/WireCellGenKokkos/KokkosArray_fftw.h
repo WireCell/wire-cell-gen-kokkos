@@ -88,6 +88,15 @@ namespace WireCell {
 
             return out;
         }
+        inline void idft_cr(const array_xxc& in, array_xxf& out, int dim = 0)
+        {
+            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
+            auto out_eigen = WireCell::Array::idft_cr(in_eigen, dim);
+            auto out = gen_2d_view<array_xxf>(out_eigen.rows(), out_eigen.cols(), 0);
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar));
+
+            return out;
+        }
 
     }  // namespace KokkosArray
 }  // namespace WireCell

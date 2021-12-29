@@ -450,6 +450,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
 
     acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
 
+    m_decon_data_v = acc_data_t_w ;
+
     auto acc_data_t_w_h = Kokkos::create_mirror_view(acc_data_t_w);
     // std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,10) << std::endl;
     Kokkos::deep_copy(acc_data_t_w_h, acc_data_t_w);
@@ -515,3 +517,70 @@ Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
         return wf;
     }
 }
+
+KokkosArray::array_xxf GenKokkos::ImpactTransform::waveform_v(int nwires) const
+{
+
+    	const int nsamples = m_bd.tbins().nbins();
+    	auto wfs = KokkosArray::Zero<KokkosArray::array_xxf> ( nsamples, nwires) ;	
+
+    	if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
+	   const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad()) ;
+	   Kokkos::resize(wfs, nlength, nwires) ;
+
+    std::cout<<"nsamples="<<nsamples<<" nlength="<<nlength<<" nwires="<<nwires<<" s-ch,e_ch=" << m_start_ch<<" "<< m_end_ch<<" S_tick,E_tick=" << m_start_tick<<" " <<m_end_tick<<std::endl;
+     
+     	   int chs_start = m_start_ch > 0 ? m_start_ch : 0 ;
+    	   int chs_end = m_end_ch > nwires ? nwires : m_end_ch ;
+     	   int samples_start = m_start_tick >0 ? m_start_tick : 0 ;
+     	   int samples_end = m_end_tick > nsamples ? nsamples : m_end_tick ;
+	   auto data = m_decon_data_v ;
+	   int ofs_ch = m_start_ch ;
+	   int ofs_tick = m_start_tick  ;
+	   Kokkos::fence() ;
+	   //std::cout<<KokkosArray::dump_2d_view(wfs,10) ;
+	   //std::cout<<KokkosArray::dump_2d_view(data,10) ;
+
+  //std::cout<<"chs_start, chs-end="<<chs_start<<","<<chs_end<<" sample_start, sample_end"<<samples_start<<","<<samples_end<<std::endl ;	   
+ // std::cout<<"data dims="<<data.extent(0)<<","<<data.extent(1)<<std::endl ; 
+ // std::cout<<"wfs dims="<<wfs.extent(0)<<","<<wfs.extent(1)<<std::endl ; 
+           Kokkos::parallel_for( "ConvData4LongRes ",
+               Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({samples_start, chs_start}, { samples_end , chs_end }),
+               KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                   wfs(i0 , i1 ) = data(i1 - ofs_ch , i0 - ofs_tick );
+                   //wfs(i0 , i1 ) = 1.0 ;
+		   //if((i1 - m_start_ch) >=  data.extent(0) || (i1-m_start_ch) <0 || (i0 - m_start_tick) <0 || (i0 - m_start_tick) > data.extent(1) ) printf("data exception, i1=%d ,i0= %d \n")  ;  
+		  //data(i1 - ofs_ch , i0 - ofs_tick ) = 1.0 ; 
+            });
+
+//	   std::cout<<KokkosArray::dump_2d_view(wfs,10) ;
+  //    std::cout<<"before dft_rc"<<std::endl ; 
+     	   auto specs = KokkosArray::dft_rc(wfs,1) ;
+    //  std::cout<<"after dft_rc"<<std::endl ;
+
+           Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
+           long_resp.resize(nlength, 0);
+           Waveform::compseq_t long_spec = Waveform::dft(long_resp);
+	    
+     
+	   KokkosArray::array_xc  long_spec_d("long_resp", nlength) ;
+     	   auto long_spec_h = Kokkos::create_mirror_view(long_spec_d) ;
+     	   memcpy((void*) &long_spec_h(0) , (void*) &long_spec[0] , nlength*2*sizeof(float) ) ;
+     	   Kokkos::deep_copy(long_spec_d, long_spec_h ); 
+      // std::cout<<"after deepcopy"<<std::endl ;
+
+           // S(f) * LongR(f)
+           Kokkos::parallel_for( "S*LongR",
+           Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, { specs.extent(0), specs.extent(1)}),
+                KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                specs(i0, i1) *= long_spec_d(i0);
+            });
+      std::cout<<"before idft"<<std::endl ;
+	   KokkosArray::idft_cr(specs,wfs, 1 ); 
+      
+	   Kokkos::resize(wfs, nwires, nsamples) ; 
+    	}
+        return wfs;
+    
+}
+

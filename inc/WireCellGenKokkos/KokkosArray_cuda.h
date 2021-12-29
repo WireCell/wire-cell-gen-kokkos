@@ -245,6 +245,39 @@ namespace WireCell {
             return out;
         }
 
+        inline void idft_cr(const array_xxc& in, array_xxf& out, int dim = 0)
+        {
+            Index N0 = in.extent(0);
+            Index N1 = in.extent(1);
+
+            cufftHandle plan;
+
+            if (dim == 0) {
+                int n[] = {(int) N1};
+                int inembed[] = {(int) N1};
+                int onembed[] = {(int) N1};
+                cufftPlanMany(&plan, 1, n, inembed, (int) N0, 1, onembed, (int) N0, 1, CUFFT_C2R, (int) N0);
+                cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
+                cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N1; });
+            }
+
+            if (dim == 1) {
+                int n[] = {(int) N0};
+                int inembed[] = {(int) N0};
+                int onembed[] = {(int) N0};
+                cufftPlanMany(&plan, 1, n, inembed, 1, (int) N0, onembed, 1, (int) N0, CUFFT_C2R, (int) N1);
+                cufftExecC2R(plan, (cufftComplex*) in.data(), (cufftReal*) out.data());
+                cufftDestroy(plan);
+                Kokkos::parallel_for(
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {N0, N1}),
+                    KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) { out(i0, i1) /= N0; });
+            }
+
+        }
+
     }  // namespace KokkosArray
 }  // namespace WireCell
 
