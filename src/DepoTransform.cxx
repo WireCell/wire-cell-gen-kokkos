@@ -246,7 +246,6 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             std::cout<<"Waveform Time: " << timer.seconds() <<std::endl ;
             Kokkos::Timer timer2 ;
             for (int iwire = 0; iwire < nwires; ++iwire) {
-                //auto wave = transform.waveform(iwire);
 		std::vector<float>  wave( & wfs_h(0, iwire) , & wfs_h(tbins.nbins(), iwire ) ) ;
 
                 auto mm = Waveform::edge(wave);
