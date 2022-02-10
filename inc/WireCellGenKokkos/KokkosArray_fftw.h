@@ -54,27 +54,11 @@ namespace WireCell {
 
             return out;
         }
-        inline array_xxc dft_cc(const array_xxc& in, array_xxc& out, int dim = 0)
-        {
-            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
-            auto out_eigen = WireCell::Array::dft_cc(in_eigen, dim);
-            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar) * 2);
-
-            return out;
-        }
         inline array_xxc idft_cc(const array_xxc& in, int dim = 0)
         {
             Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
             auto out_eigen = WireCell::Array::idft_cc(in_eigen, dim);
             auto out = gen_2d_view<array_xxc>(out_eigen.rows(), out_eigen.cols(), 0);
-            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar) * 2);
-
-            return out;
-        }
-        inline array_xxc idft_cc(const array_xxc& in, array_xxc& out, int dim = 0)
-        {
-            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
-            auto out_eigen = WireCell::Array::idft_cc(in_eigen, dim);
             memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar) * 2);
 
             return out;
