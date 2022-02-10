@@ -408,8 +408,8 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         Kokkos::deep_copy(sp_fs, sps_h );
 
 	auto  sp_ts = KokkosArray::idft_cr(sp_fs,1) ;
-	if (fillsize < m_end_tick - m_start_tick )  
-		Kokkos::resize(sp_ts, m_end_tick - m_start_tick, nimpact) ;
+	if (fillsize < sp_size )  
+		Kokkos::resize(sp_ts, fillsize, nimpact) ;
 	resp_redu = KokkosArray::dft_rc(sp_ts,1) ;
 	Kokkos::resize(sp_ts,0,0) ;
 	Kokkos::resize(sp_fs,0,0) ;
