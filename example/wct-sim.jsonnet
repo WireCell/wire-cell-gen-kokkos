@@ -9,8 +9,11 @@
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
-
 local io = import 'pgrapher/common/fileio.jsonnet';
+
+local input = std.extVar('input');
+local output = std.extVar('output');
+
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
 local base = import 'pgrapher/experiment/pdsp/simparams.jsonnet';
 local params = base {
@@ -64,7 +67,7 @@ local sinks = magnify(tools, magoutput);
 local sio_sinks = g.pnode({
         type: "FrameFileSink",
         data: {
-            outname: "frames.tar.bz2",
+            outname: output, // "frames.tar.bz2",
             tags: ["orig"],
             digitize: false,
         },
@@ -105,7 +108,7 @@ local sink = sim.frame_sink;
 
 local depo_source  = g.pnode({
     type: 'DepoFileSource',
-    data: { inname: "depos-set.tar.bz2" }
+    data: { inname: input } // "depos.tar.bz2"
 }, nin=0, nout=1);
 
 local graph = g.pipeline([depo_source, setdrifter, bi_manifold, retagger, sio_sinks]);
