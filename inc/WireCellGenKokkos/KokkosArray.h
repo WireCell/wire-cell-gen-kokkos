@@ -53,7 +53,9 @@ namespace WireCell {
         template <class ViewType>
         inline ViewType Zero(const Index N0, const Index N1)
         {
-            return gen_2d_view<ViewType>(N0, N1, 0);
+	    ViewType ret("ret", N0, N1) ;
+            //return gen_2d_view<ViewType>(N0, N1, 0);
+	    return ret ;
         }
 
         /// Dump out a string for pinting for a 2D view.

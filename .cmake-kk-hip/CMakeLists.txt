@@ -36,6 +36,7 @@ add_library(WireCellGenKokkos SHARED ${all_files})
 target_include_directories(WireCellGenKokkos
   PRIVATE
     ${PROJECT_SOURCE_DIR}/../inc
+    $ENV{HIPFFT_INC}
     $ENV{EIGEN_INC}
     $ENV{JSONCPP_INC}
     $ENV{JSONNET_INC}

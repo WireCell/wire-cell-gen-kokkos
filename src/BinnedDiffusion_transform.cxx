@@ -115,7 +115,7 @@ GenKokkos::BinnedDiffusion_transform::~BinnedDiffusion_transform() {
 }
 
 
-
+/*
 void GenKokkos::BinnedDiffusion_transform::init_Device() {
 
 
@@ -131,6 +131,7 @@ void GenKokkos::BinnedDiffusion_transform::init_Device() {
     Kokkos::parallel_for(size*samples/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool2, 256));
 }
 
+*/
 
 void GenKokkos::BinnedDiffusion_transform::clear_Device() {
 
@@ -242,7 +243,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     const auto ib = m_pimpos.impact_binning();
 
     // map between reduced impact # to array #
-
+/*
     std::map<int, int> map_redimp_vec;
     std::vector<std::unordered_map<long int, int> > vec_map_pair_pos;
     for (size_t i = 0; i != vec_impact.size(); i++) {
@@ -278,8 +279,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     wend = omp_get_wtime();
     g_get_charge_vec_time_part2 = wend - wstart;
     cout << "get_charge_matrix_kokkos(): part2 running time : " << g_get_charge_vec_time_part2 << endl;
-
-    wstart = omp_get_wtime();
+*/
+ //   wstart = omp_get_wtime();
     Kokkos::Tools::popRegion() ;
     // set the size of gd view and create host view
     int npatches = m_diffs.size();
@@ -301,7 +302,8 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         gdata_h(ii).t_sigma = diff->time_desc().sigma;
         gdata_h(ii).p_sigma = diff->pitch_desc().sigma;
         //    if(diff->pitch_desc().sigma == 0 || diff->time_desc().sigma == 0  ) std::cout<<"sigma-0 patch: " <<ii <<
-        //    std::endl ;
+         //   std::endl ;
+	//std::cout<<"Gdata: " << ii<<" "<<gdata_h(ii).p_ct<<" "<<gdata_h(ii).t_ct<<" "<<gdata_h(ii).charge<<" "<<gdata_h(ii).t_sigma<<" "<<gdata_h(ii).p_sigma <<std::endl ;
         ii++;
     }
     Kokkos::Tools::popRegion() ;
@@ -362,6 +364,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
         offsets_d(npatches + i) = p_ofb;
     });
 
+    std::cout<<"npatches= "<<npatches <<std::endl ;
     //  kernel calculate index for patch  Can be mergged to previous kernel ?
     unsigned long result;  // total patches points
     Kokkos::parallel_scan("Scan" ,npatches,
@@ -370,6 +373,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                   patch_idx(i) = lsum;
                                   if (i == (npatches - 1)) {
                                       patch_idx(npatches) = lsum + np_d(i) * nt_d(i);
+				      //printf("Scan:final: lsum=%lu i=%d np_d=%d nt_d=%d \n", lsum,i , np_d(i), nt_d(i) );
                                   }
                               }
                               //  bool pr =true ;
@@ -394,15 +398,15 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     // make a view pointing to random numbers
     Kokkos::Tools::pushRegion("normal view create");
     int size = (result+255)/256 * 256 ; 
-    Kokkos::resize(m_normals, size );
+    Kokkos::View <double *> normals(Kokkos::ViewAllocateWithoutInitializing("Normals"), size) ; 
     Kokkos::Tools::popRegion() ; 
     Kokkos::Tools::pushRegion("Random Number create");
     int seed = 2020;
     Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
 
-    Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+    Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(normals, rand_pool1, rand_pool1, 256));
     //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
-    auto normals = m_normals;
+    //auto normals = m_normals;
     Kokkos::Tools::popRegion() ;
 
     // decide weight calculation
@@ -492,11 +496,15 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
     Kokkos::Tools::popRegion();
 
     Kokkos::Tools::pushRegion("Set_sampling_batch fuct") ; 
-    wend = omp_get_wtime();
     set_sampling_bat( npatches, nt_d,  np_d,  patch_idx, pvecs_d , tvecs_d, patch_d, normals,gdata  ) ;
     Kokkos::Tools::popRegion();
+    Kokkos::fence() ;
     // std::cout << "patch_d: " << typeid(patch_d).name() << std::endl;
     // std::cout << "patch_idx: " << typeid(patch_idx).name() << std::endl;
+    wend = omp_get_wtime();
+    g_get_charge_vec_time_part4 += wend-wstart ;
+    std::cout <<"set_sampling_Time: "<< wend-wstart <<std::endl;
+    
     wstart = omp_get_wtime();
     // cout << "pr21 get_charge_matrix_kokkos(): set_sampling_bat() no DtoH time " << wstart - wend << endl;
     // std::cout << "yuhw: DEBUG: npatches: " << npatches << std::endl;
@@ -524,13 +532,14 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_matrix_kokkos(KokkosArray:
                                  Kokkos::atomic_add(&out(p+i%np+1, t+i/np), (float)(charge*(1.-weight)));
                              });
     });
+    Kokkos::fence() ;
     // std::cout << "yuhw: box_of_one: " << KokkosArray::dump_2d_view(out,20) << std::endl;
     wend = omp_get_wtime();
     // std::cout << "yuhw: DEBUG: out: " << KokkosArray::dump_2d_view(out,10000) << std::endl;
-    g_get_charge_vec_time_part3 = wend - wstart;
-    cout << "get_charge_matrix_kokkos(): part3 running time : " << g_get_charge_vec_time_part3 << endl;
-    cout << "get_charge_matrix_kokkos(): set_sampling() running time : " << g_get_charge_vec_time_part4
-         << ", counter : " << counter << endl;
+    g_get_charge_vec_time_part3 += wend - wstart;
+    cout<<"ScatterAdd_Time : "<<wend-wstart << endl ; 
+    cout << "get_charge_matrix_kokkos(): Total_ScatterAdd_Time : " << g_get_charge_vec_time_part3 << endl;
+    cout << "get_charge_matrix_kokkos(): Total_set_sampling_Time : " << g_get_charge_vec_time_part4<< endl ;
     cout << "get_charge_matrix_kokkos() : m_fluctuate : " << m_fluctuate << endl;
 
 #ifdef HAVE_CUDA_INC
@@ -657,7 +666,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     vec_map_pair_pos.push_back(map_pair_pos);
   }
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part1 = wend - wstart;
+  g_get_charge_vec_time_part1 += wend - wstart;
   cout << "get_charge_vec() : part1 running time : " << g_get_charge_vec_time_part1 << endl;
 
 
@@ -685,7 +694,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   int counter = 0;
 
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part2 = wend - wstart;
+  g_get_charge_vec_time_part2 += wend - wstart;
   cout << "get_charge_vec() : part2 running time : " << g_get_charge_vec_time_part2 << endl;
   
 
@@ -706,6 +715,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     gdata_h(ii).t_sigma=diff->time_desc().sigma ;
     gdata_h(ii).p_sigma=diff->pitch_desc().sigma ;
 //    if(diff->pitch_desc().sigma == 0 || diff->time_desc().sigma == 0  ) std::cout<<"sigma-0 patch: " <<ii << std::endl ; 
+    if( gdata_h(ii).charge == 0   ) std::cout<<" 0Charge: " <<ii << std::endl ; 
     ii++ ;
   }
 
@@ -809,17 +819,18 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
   //to normals = Kokkos::subview(m_normals,std::make_pair((size_t)0, (size_t)result ) ) ;
   Kokkos::Tools::pushRegion("normal view create");
   int size = (result+255)/256 * 256 ; 
-  Kokkos::resize(m_normals, size );
+  Kokkos::View <double *> normals(Kokkos::ViewAllocateWithoutInitializing("Normals"), size) ; 
+  //Kokkos::resize(m_normals, size );
   Kokkos::Tools::popRegion() ; 
   Kokkos::Tools::pushRegion("Random Number create");
+  Kokkos::Timer kt0;
   int seed = 2020;
   Kokkos::Random_XorShift64_Pool<> rand_pool1(seed);
 
-  Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(m_normals, rand_pool1, rand_pool1, 256));
+  Kokkos::parallel_for(size/256, generate_random<Kokkos::Random_XorShift64_Pool<> >(normals, rand_pool1, rand_pool1, 256));
   //auto normals = Kokkos::subview(m_normals, std::make_pair((size_t) 0, (size_t) result));
-  auto normals = m_normals;
   Kokkos::Tools::popRegion() ;
-
+  std::cout<<"Random number_Time : "<<kt0.seconds() <<std::endl ;
   //decide weight calculation
   int weightstrat=m_calcstrat ;
 
@@ -896,6 +907,7 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 
   wend = omp_get_wtime();
   cout << "get_charge_vec() : set_sampling_pre() time " << wend- wstart<< endl;
+  g_get_charge_vec_time_part4 += wend -wstart ;
 
 //  set_sampling_bat( counter, max_patch_size) ;
   set_sampling_bat( npatches, nt_d,  np_d,  patch_idx, pvecs_d , tvecs_d, patch_d, normals,gdata  ) ;
@@ -912,10 +924,14 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
 
   cout << "get_charge_vec() : get_charge_vec() set_sampling_bat() time " << wstart-wend<< endl;
   std::cout<<"debug: patch values: "<<m_diffs.size() << " "<< patch_idx_v_h[m_diffs.size()] <<std::endl ;
-//  for( long int jj=0 ; jj<m_patch_idx_h[m_diffs.size()] ; jj++ )
+
+  g_get_charge_vec_time_part4 += wstart-wend ;
+  //for( long int jj=0 ; jj<m_patch_idx_h[m_diffs.size()] ; jj++ )
   //for( long int jj=0 ; jj<100 ; jj++ )
   //for( long int jj=0 ; jj<patch_idx_v_h[m_diffs.size()] ; jj++ )
-// 	  std::cout<<"PatchValues: "<<patch_v_h[jj] << std::endl ;
+// for ( int i1=0 ; i1< m_diffs.size() ; i1++) 
+//	for (long int jj= patch_idx_v_h[i1] ; jj< patch_idx_v_h[i1+1] ; jj++) 
+//  std::cout<<"PatchValues: "<<i1<< " " <<jj-patch_idx_v_h[i1]<<" "<< patch_v_h[jj] << std::endl ;
 
 
 /*
@@ -1007,9 +1023,9 @@ void GenKokkos::BinnedDiffusion_transform::get_charge_vec(std::vector<std::vecto
     //     }
     // }
   wend = omp_get_wtime();
-  g_get_charge_vec_time_part3 = wend - wstart;
-  cout << "get_charge_vec() : part3 running time : " << g_get_charge_vec_time_part3 << endl;
-  cout << "get_charge_vec() : set_sampling() running time : " << g_get_charge_vec_time_part4 << ", counter : " << counter << endl;
+  g_get_charge_vec_time_part3 += wend - wstart;
+  cout << "get_charge_vec() :  Total ScaterAdd_Time : " << g_get_charge_vec_time_part3 << endl;
+  cout << "get_charge_vec() : set_sampling()_Total_Time : " << g_get_charge_vec_time_part4 << endl;
   cout << "get_charge_vec() : m_fluctuate : " << m_fluctuate << endl;
 
 #ifdef HAVE_CUDA_INC
@@ -1117,6 +1133,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
          Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team, patch_size) ,
          [=] (int & ii, double & lsum ) { 
  //     //      double v = pvecs_d(p_idx(ip)+ ii%np)*tvecs_d(t_idx(ip)+ ii/np) ;
+     //  if( ip ==17897  ) printf("Patch17897: ii=%d pv=%e tv=%e \n", ii, pvecs_d(ip*MAX_P_SIZE + ii%np), tvecs_d(ip * MAX_T_SIZE+ ii/np) ) ;  
             double v = pvecs_d(ip*MAX_P_SIZE+ ii%np)*tvecs_d(ip * MAX_T_SIZE + ii/np) ;
 	    patch_d(ii+p0) = (float) v ;
 	    lsum += v ;
@@ -1127,7 +1144,7 @@ void GenKokkos::BinnedDiffusion_transform::set_sampling_bat(const unsigned long 
        double charge=gdata(ip).charge ;
        double charge_abs = abs(charge) ;
        int charge_sign = charge < 0  ? -1 :1 ;
-//   if(ip==0 ) printf("sum= %f, %f, %f %f %f %f \n", sum, normals(0), patch_d(0), charge_abs, pvecs_d(0),tvecs_d(0)  ) ;
+ //  if(ip==17896 ) printf("sum= %e, %e, %e %e %e %e \n", sum, normals(p0), patch_d(p0), charge_abs, pvecs_d(ip),tvecs_d(ip)  ) ;
 
        Kokkos::parallel_for(Kokkos::TeamVectorRange(team, patch_size) ,
 //       Kokkos::parallel_for(Kokkos::TeamThreadRange(team, patch_size) ,

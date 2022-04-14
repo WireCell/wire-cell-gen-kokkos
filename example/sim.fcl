@@ -1,7 +1,8 @@
 process_name: wclssim
 
 # "Pgrapher" or "TbbFlow"
-wc_engine: "Pgrapher"
+#wc_engine: "Pgrapher"
+wc_engine: "TbbFlow"
 
 physics :{
    producers: {

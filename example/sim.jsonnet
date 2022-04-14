@@ -1,10 +1,10 @@
 // Energy depo -> detector response simulation -> waveform frames
 
 // local reality = std.extVar('reality');
-// local engine = std.extVar('engine');
+local engine = std.extVar('engine');
 
 local reality = 'data';
-local engine = 'Pgrapher';
+//local engine = 'Pgrapher';
 
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';

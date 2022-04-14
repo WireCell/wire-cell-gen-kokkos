@@ -8,6 +8,7 @@
 #include <omp.h>
 
 double g_get_charge_vec_time = 0.0;
+double g_fft_time = 0.0;
 
 using namespace std;
 
@@ -67,8 +68,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
     m_bd.get_charge_vec(m_vec_vec_charge, m_vec_impact);
     double wend = omp_get_wtime();
     g_get_charge_vec_time += wend - wstart;
-    log->debug("ImpactTransform::ImpactTransform() : get_charge_vec() Total running time : {}", g_get_charge_vec_time);
-
+    log->debug("ImpactTransform::ImpactTransform() : get_charge_vec() Total_Time : {}", g_get_charge_vec_time);
     std::pair<int, int> impact_range = m_bd.impact_bin_range(m_bd.get_nsigma());
     std::pair<int, int> time_range = m_bd.time_bin_range(m_bd.get_nsigma());
 
@@ -278,9 +278,13 @@ bool GenKokkos::ImpactTransform::transform_vector()
     m_decon_data = real_m_decon_data + img_m_decon_data;
 
     double timer_fft = omp_get_wtime() - wstart;
-    log->debug("ImpactTransform::transform_vector: FFT: {}", timer_fft);
+    log->debug("ImpactTransform::transform_vector: FFT_Time: {}", timer_fft);
     timer_transform = omp_get_wtime() - timer_transform;
     log->debug("ImpactTransform::transform_vector: Total: {}", timer_transform);
+    g_fft_time += timer_fft ;
+    log->debug("ImpactTransform::transform_vector: Total_FFT_Time: {}", g_fft_time);
+
+
     
     log->debug("ImpactTransform::transform_vector: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
     log->debug("transform_vector: m_decon_data.sum(): {}", m_decon_data.sum());
@@ -292,6 +296,7 @@ bool GenKokkos::ImpactTransform::transform_vector()
 bool GenKokkos::ImpactTransform::transform_matrix()
 {
     double timer_transform = omp_get_wtime();
+    double td0(0.0), td1(.0)   ;
     // arrange the field response (210 in total, pitch_range/impact)
     // number of wires nwires ...
     m_num_group = std::round(m_pir->pitch() / m_pir->impact()) + 1;  // 11
@@ -336,13 +341,16 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     // now work on the charge part ...
     // trying to sampling ...
     double wstart = omp_get_wtime();
+    td0 += wstart-timer_transform ;
     KokkosArray::array_xxf f_data = KokkosArray::Zero<KokkosArray::array_xxf>(end_pitch - start_pitch, m_end_tick - m_start_tick);;
     m_bd.get_charge_matrix_kokkos(f_data, m_vec_impact, start_pitch, m_start_tick);
     // Kokkos::fence();
-    // std::cout << KokkosArray::dump_2d_view(f_data, 10);
+    //std::cout << KokkosArray::dump_2d_view(f_data, 10);
     double wend = omp_get_wtime();
+    td1 += wend-wstart ;
     g_get_charge_vec_time += wend - wstart;
-    log->debug("ImpactTransform::ImpactTransform() : get_charge_vec() Total running time : {}", g_get_charge_vec_time);
+    //log->debug("ImpactTransform::ImpactTransform() : get_charge_vec() Total running time : {}", g_get_charge_vec_time);
+    log->debug("ImpactTransform::ImpactTransform() : get_charge_matrix() Total_Time :  {}", g_get_charge_vec_time);
 
     wstart = omp_get_wtime();
     KokkosArray::array_xxc acc_data_f_w = KokkosArray::Zero<KokkosArray::array_xxc>(end_ch - start_ch + 2 * npad_wire, m_end_tick - m_start_tick);
@@ -356,64 +364,84 @@ bool GenKokkos::ImpactTransform::transform_matrix()
         // fine grained resp. matrix
         KokkosArray::array_xxc resp_f_w_k =
             KokkosArray::Zero<KokkosArray::array_xxc>(end_pitch - start_pitch, m_end_tick - m_start_tick);
-        auto resp_f_w_k_h = Kokkos::create_mirror_view(resp_f_w_k);
         int nimpact = m_pir->nwires() * (m_num_group - 1);
         assert(end_pitch - start_pitch >= nimpact);
         double max_impact = (0.5 + m_num_pad_wire) * m_pir->pitch();
         // TODO this loop could be parallerized by seperating it into 2 parts
         // 1, extract the m_pir into a Kokkos::Array first
         // 2, do various operation in a parallerized fasion
+	
+        Kokkos::View<int*> idx_d(Kokkos::ViewAllocateWithoutInitializing("Idx"),nimpact) ;
+	KokkosArray::array_xxc resp_redu(Kokkos::ViewAllocateWithoutInitializing("resp_redu"),m_end_tick - m_start_tick,nimpact) ;
+	auto idx_h = Kokkos::create_mirror_view(idx_d);
+        
+	auto ip0 = m_pir->closest(-max_impact + 0.01 * m_pir->impact()) ;
+        int sp_size = ip0->spectrum() .size() ;
+	KokkosArray::array_xxc sp_fs(Kokkos::ViewAllocateWithoutInitializing("SP_FS"),sp_size,nimpact) ;
+	auto sps_h = Kokkos::create_mirror_view(sp_fs);
+	int fillsize = min(sp_size, m_end_tick - m_start_tick );
+
+
+
         for (int jimp = 0; jimp < nimpact; ++jimp) {
             float impact = -max_impact + jimp * m_pir->impact();
-            // std::cout << "yuhw: jimp " << jimp << ", " << impact;
+             //std::cout << "yuhw: jimp " << jimp << ", " << impact;
             // to avoid exess of boundary.
             // central is < 0, after adding 0.01 * m_pir->impact(), it is > 0
             impact += impact < 0 ? 0.01 * m_pir->impact() : -0.01 * m_pir->impact();
-            // std::cout << ", " << impact;
             auto ip = m_pir->closest(impact);
             Waveform::compseq_t sp_f = ip->spectrum();
-            Waveform::realseq_t sp_t = Waveform::idft(sp_f);
-            Waveform::realseq_t sp_t_reduced(m_end_tick - m_start_tick, 0);
-            for (int icol = 0; icol != m_end_tick - m_start_tick; icol++) {
-                if (icol >= int(sp_t.size())) break;
-                sp_t_reduced.at(icol) = sp_t[icol];
-            }
-            auto sp_f_reduced = Waveform::dft(sp_t_reduced);
+
+
+	    memcpy((void*) &sps_h(0, jimp) , (void*) &sp_f[0] , sp_size*2*sizeof(float) ) ; 
+           
             // 0 and right on the left; left on the right
             // int idx = impact < 0 ? end_pitch - start_pitch - (std::round(nimpact / 2.) - jimp)
             //                      : jimp - std::round(nimpact / 2.);
             // 0 and left and the left; right on the right
             int idx = impact < 0.1 * m_pir->impact() ? std::round(nimpact / 2.) - jimp
                                  : end_pitch - start_pitch - (jimp - std::round(nimpact / 2.));
-            // std::cout << ", " << idx << std::endl;
-            assert(idx >= 0 && idx < resp_f_w_k_h.extent(0));
-            for (size_t i = 0; i < sp_f_reduced.size(); ++i) {
-                resp_f_w_k_h(idx, i) = sp_f_reduced[i];
-            }
+	    idx_h(jimp) = idx ;
         }
 
-        Kokkos::deep_copy(resp_f_w_k, resp_f_w_k_h);
-        resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
-        // auto tmp = KokkosArray::idft_cr(resp_f_w_k, 0);
-        // resp_f_w_k = KokkosArray::dft_cc(resp_f_w_k, 1);
-        // std::cout << "resp_f_w_k: " << KokkosArray::dump_2d_view(tmp, 10000);
+        Kokkos::deep_copy(idx_d, idx_h);
+        Kokkos::deep_copy(sp_fs, sps_h );
 
-        auto data_c = KokkosArray::dft_rc(f_data, 0);
-        data_c = KokkosArray::dft_cc(data_c, 1);
+	auto  sp_ts = KokkosArray::idft_cr(sp_fs,1) ;
+	if (fillsize < sp_size )  
+		Kokkos::resize(sp_ts, fillsize, nimpact) ;
+	resp_redu = KokkosArray::dft_rc(sp_ts,1) ;
+	Kokkos::resize(sp_ts,0,0) ;
+	Kokkos::resize(sp_fs,0,0) ;
+
+	Kokkos::parallel_for( "FillResp",
+            Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {resp_redu.extent(0), resp_redu.extent(1)}),
+            KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                resp_f_w_k(idx_d(i1), i0) = resp_redu (i0, i1) ;
+            });
+
+
+        auto data_d = KokkosArray::dft_rc(f_data, 0);
+	Kokkos::resize(f_data,0,0) ;
+        auto data_c = KokkosArray::dft_cc(data_d, 1);
+
+        KokkosArray::dft_cc(resp_f_w_k, data_d, 1);
+	resp_f_w_k = data_d ;
 
         // S(f) * R(f)
-        Kokkos::parallel_for(
+        Kokkos::parallel_for( "S*R",
             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {data_c.extent(0), data_c.extent(1)}),
             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
                 data_c(i0, i1) *= resp_f_w_k(i0, i1);
                 // data_c(i0, i1) *= 1.0;
             });
-
         // transfer wire to time domain
-        data_c = KokkosArray::idft_cc(data_c, 1);
+	KokkosArray::idft_cc(data_c,data_d, 1);
+	data_c = data_d ;
+	Kokkos::resize(resp_f_w_k, 0 , 0 ) ;
 
         // extract M(channel) from M(impact)
-        Kokkos::parallel_for(
+        Kokkos::parallel_for( "Pick ",
             Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, {acc_data_f_w.extent(0), acc_data_f_w.extent(1)}),
             KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
                 acc_data_f_w(i0, i1) = data_c((i0 + 1) * 10, i1);
@@ -429,12 +457,17 @@ bool GenKokkos::ImpactTransform::transform_matrix()
     m_decon_data = acc_data_t_w_eigen; // FIXME: reduce this copy
     
     double timer_fft = omp_get_wtime() - wstart;
+    g_fft_time += timer_fft ;
+    std::cout<<"m_decon_data.sum: "<<m_decon_data.rows()<<"," <<m_decon_data.cols()<<",  "<< m_decon_data.sum() <<std::endl ;
     log->debug("ImpactTransform::transform_matrix: FFT: {}", timer_fft);
     timer_transform = omp_get_wtime() - timer_transform;
     log->debug("ImpactTransform::transform_matrix: Total: {}", timer_transform);
-
     log->debug("ImpactTransform::transform_matrix: # of channels: {} # of ticks: {}", m_decon_data.rows(), m_decon_data.cols());
     log->debug("ImpactTransform::transform_matrix: m_decon_data.sum(): {}", m_decon_data.sum());
+    std::cout<<"Tranform_matrix_p0_Time: "<<td0 <<std::endl;
+    std::cout<<"get_charge_matrix_Time: "<<td1 <<std::endl;
+    std::cout<<"FFTs_Time: "<<timer_fft <<std::endl;
+    log->debug("ImpactTransform::transform_matrix: Total_FFT_Time: {}", g_fft_time);
     return true;
 }
 
@@ -442,6 +475,7 @@ GenKokkos::ImpactTransform::~ImpactTransform() {}
 
 Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
 {
+    if(iwire==0) std::cout<<"s-ch,e_ch=" << m_start_ch<<" "<< m_end_ch<<" S_tick,E_tick=" << m_start_tick<<" " <<m_end_tick<<std::endl;
     const int nsamples = m_bd.tbins().nbins();
     if (iwire < m_start_ch || iwire >= m_end_ch) {
         return Waveform::realseq_t(nsamples, 0.0);
@@ -458,25 +492,25 @@ Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
             // std::cout << m_decon_data(iwire-m_start_ch,i-m_start_tick) << std::endl;
         }
 
-        // if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
-        //     // now convolute with the long-range response ...
-        //     const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
+        if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
+            // now convolute with the long-range response ...
+            const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad());
 
-        //     // nlength = nsamples;
+            //nlength = nsamples;
 
-        //     //   std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
+            //std::cout << nlength << " " << nsamples + m_pir->closest(0)->long_aux_waveform_pad() << std::endl;
 
-        //     wf.resize(nlength, 0);
-        //     Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
-        //     long_resp.resize(nlength, 0);
-        //     Waveform::compseq_t spec = Waveform::dft(wf);
-        //     Waveform::compseq_t long_spec = Waveform::dft(long_resp);
-        //     for (size_t i = 0; i != nlength; i++) {
-        //         spec.at(i) *= long_spec.at(i);
-        //     }
-        //     wf = Waveform::idft(spec);
-        //     wf.resize(nsamples, 0);
-        // }
+            wf.resize(nlength, 0);
+            Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
+            long_resp.resize(nlength, 0);
+            Waveform::compseq_t spec = Waveform::dft(wf);
+            Waveform::compseq_t long_spec = Waveform::dft(long_resp);
+           for (size_t i = 0; i != nlength; i++) {
+                spec.at(i) *= long_spec.at(i);
+            }
+            wf = Waveform::idft(spec);
+            wf.resize(nsamples, 0);
+         }
 
         return wf;
     }
