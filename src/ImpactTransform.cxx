@@ -450,11 +450,15 @@ bool GenKokkos::ImpactTransform::transform_matrix()
 
     acc_data_t_w = KokkosArray::idft_cr(acc_data_f_w, 0);
 
+    m_decon_data_v = acc_data_t_w ;
+
     auto acc_data_t_w_h = Kokkos::create_mirror_view(acc_data_t_w);
-    // std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,10) << std::endl;
+    //std::cout << "yuhw: acc_data_t_w_h: " << KokkosArray::dump_2d_view(acc_data_t_w,10) << std::endl;
     Kokkos::deep_copy(acc_data_t_w_h, acc_data_t_w);
+    //std::cout << "mdeconn_data_dv: (75,1) " << acc_data_t_w_h(75,1) <<std::endl ;
     Eigen::Map<Eigen::ArrayXXf> acc_data_t_w_eigen((float*) acc_data_t_w_h.data(), acc_data_t_w_h.extent(0), acc_data_t_w_h.extent(1));
     m_decon_data = acc_data_t_w_eigen; // FIXME: reduce this copy
+   // std::cout << "mdeconn_data: (75,1) " << m_decon_data(75,1) <<std::endl ;
     
     double timer_fft = omp_get_wtime() - wstart;
     g_fft_time += timer_fft ;
@@ -514,4 +518,55 @@ Waveform::realseq_t GenKokkos::ImpactTransform::waveform(int iwire) const
 
         return wf;
     }
+}
+
+KokkosArray::array_xxf GenKokkos::ImpactTransform::waveform_v(int nwires) const
+{
+
+    	const int nsamples = m_bd.tbins().nbins();
+    	auto wfs = KokkosArray::Zero<KokkosArray::array_xxf> ( nsamples, nwires) ;	
+
+    	if (m_pir->closest(0)->long_aux_waveform().size() > 0) {
+	   const size_t nlength = fft_best_length(nsamples + m_pir->closest(0)->long_aux_waveform_pad()) ;
+	   Kokkos::resize(wfs, nlength, nwires) ;
+
+     
+     	   int chs_start = m_start_ch > 0 ? m_start_ch : 0 ;
+    	   int chs_end = m_end_ch > nwires ? nwires : m_end_ch ;
+     	   int samples_start = m_start_tick >0 ? m_start_tick : 0 ;
+     	   int samples_end = m_end_tick > nsamples ? nsamples : m_end_tick ;
+	   auto data = m_decon_data_v ;
+	   int ofs_ch = m_start_ch ;
+	   int ofs_tick = m_start_tick  ;
+
+           Kokkos::parallel_for( "ConvData4LongRes ",
+               Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({samples_start, chs_start}, { samples_end , chs_end }),
+               KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                   wfs(i0 , i1 ) = data(i1 - ofs_ch , i0 - ofs_tick );
+            });
+
+     	   auto specs = KokkosArray::dft_rc(wfs,1) ;
+
+           Waveform::realseq_t long_resp = m_pir->closest(0)->long_aux_waveform();
+           long_resp.resize(nlength, 0);
+           Waveform::compseq_t long_spec = Waveform::dft(long_resp);
+	    
+     
+	   KokkosArray::array_xc  long_spec_d("long_resp", nlength) ;
+     	   auto long_spec_h = Kokkos::create_mirror_view(long_spec_d) ;
+     	   memcpy((void*) &long_spec_h(0) , (void*) &long_spec[0] , nlength*2*sizeof(float) ) ;
+     	   Kokkos::deep_copy(long_spec_d, long_spec_h ); 
+
+           // S(f) * LongR(f)
+           Kokkos::parallel_for( "S*LongR",
+           Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>({0, 0}, { specs.extent(0), specs.extent(1)}),
+                KOKKOS_LAMBDA(const KokkosArray::Index& i0, const KokkosArray::Index& i1) {
+                specs(i0, i1) *= long_spec_d(i0);
+            });
+	   KokkosArray::idft_cr(specs,wfs, 1 ); 
+      
+	   Kokkos::resize(wfs,  nsamples, nwires) ; 
+    	}
+        return wfs;
+    
 }

@@ -240,8 +240,13 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             std::cout<<"nwires: "<<nwires <<" nsamples: "<<tbins.nbins()<< " p1: " << t1-t0 << " p2: "<< t2-t1<< std::endl ;
             Kokkos::Timer timer ;
 
+	    auto wfs = transform.waveform_v(nwires) ;
+	    auto wfs_h = Kokkos::create_mirror_view(wfs) ;
+	    Kokkos::deep_copy(wfs_h, wfs) ;
+            std::cout<<"Waveform Time: " << timer.seconds() <<std::endl ;
+            Kokkos::Timer timer2 ;
             for (int iwire = 0; iwire < nwires; ++iwire) {
-                auto wave = transform.waveform(iwire);
+		std::vector<float>  wave( & wfs_h(0, iwire) , & wfs_h(tbins.nbins(), iwire ) ) ;
 
                 auto mm = Waveform::edge(wave);
                 if (mm.first == (int) wave.size()) {  // all zero

@@ -54,6 +54,15 @@ namespace WireCell {
 
             return out;
         }
+
+        inline void dft_cc(const array_xxc& in, array_xxc& out, int dim = 0)
+        {
+            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
+            auto out_eigen = WireCell::Array::dft_cc(in_eigen, dim);
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar) * 2);
+
+        }
+
         inline array_xxc idft_cc(const array_xxc& in, int dim = 0)
         {
             Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
@@ -63,6 +72,15 @@ namespace WireCell {
 
             return out;
         }
+
+        inline void  idft_cc(const array_xxc& in, array_xxc& out, int dim = 0)
+        {
+            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
+            auto out_eigen = WireCell::Array::idft_cc(in_eigen, dim);
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar) * 2);
+
+        }
+
         inline array_xxf idft_cr(const array_xxc& in, int dim = 0)
         {
             Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
@@ -71,6 +89,12 @@ namespace WireCell {
             memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar));
 
             return out;
+        }
+        inline void idft_cr(const array_xxc& in, array_xxf& out, int dim = 0)
+        {
+            Eigen::Map<Eigen::ArrayXXcf> in_eigen((std::complex<float>*) in.data(), in.extent(0), in.extent(1));
+            auto out_eigen = WireCell::Array::idft_cr(in_eigen, dim);
+            memcpy( (void*)out.data(), (void*)out_eigen.data(), out_eigen.rows()*out_eigen.cols()*sizeof(Scalar));
         }
 
     }  // namespace KokkosArray
