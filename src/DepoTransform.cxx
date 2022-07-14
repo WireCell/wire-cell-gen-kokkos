@@ -41,8 +41,8 @@
 #include "WireCellGenKokkos/ImpactTransform.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellIface/IAnodePlane.h"
-#include "WireCellIface/SimpleTrace.h"
-#include "WireCellIface/SimpleFrame.h"
+#include "WireCellAux/SimpleTrace.h"
+#include "WireCellAux/SimpleFrame.h"
 #include "WireCellGenKokkos/BinnedDiffusion_transform.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
@@ -55,6 +55,8 @@ WIRECELL_FACTORY(GenKokkosDepoTransform, WireCell::GenKokkos::DepoTransform, Wir
 
 using namespace WireCell;
 using namespace std;
+using WireCell::Aux::SimpleTrace;
+using WireCell::Aux::SimpleFrame;
 
 GenKokkos::DepoTransform::DepoTransform()
   : m_start_time(0.0 * units::ns)
@@ -82,7 +84,8 @@ void GenKokkos::DepoTransform::configure(const WireCell::Configuration& cfg)
         auto rng_tn = get<string>(cfg, "rng", "");
         m_rng = Factory::find_tn<IRandom>(rng_tn);
     }
-
+    std::string dft_tn = get<std::string>(cfg, "dft", "FftwDFT");
+    m_dft = Factory::find_tn<IDFT>(dft_tn);
     m_readout_time = get<double>(cfg, "readout_time", m_readout_time);
     m_tick = get<double>(cfg, "tick", m_tick);
     m_start_time = get<double>(cfg, "start_time", m_start_time);
@@ -222,7 +225,7 @@ bool GenKokkos::DepoTransform::operator()(const input_pointer& in, output_pointe
             auto& wires = plane->wires();
 
             auto pir = m_pirs.at(iplane);
-            GenKokkos::ImpactTransform transform(pir, bindiff);
+            GenKokkos::ImpactTransform transform(pir, m_dft, bindiff);
 
            
 	    
