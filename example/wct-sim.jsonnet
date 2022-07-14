@@ -112,7 +112,7 @@ local depo_source  = g.pnode({
 }, nin=0, nout=1);
 
 local graph = g.pipeline([depo_source, setdrifter, bi_manifold, retagger, sio_sinks]);
-local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellRoot"];
+local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellRoot", "WireCellGenKokkos"];
 
 // Pgrapher or TbbFlow
 local engine = "Pgrapher";
@@ -131,6 +131,9 @@ local cmdline = {
     }
 };
 
+local env = {
+    type: "KokkosEnv",
+};
 
 // Finally, the configuration sequence which is emitted.
-[cmdline] + g.uses(graph) + [app]
+[env] + [cmdline] + g.uses(graph) + [app]
