@@ -112,7 +112,7 @@ local depo_source  = g.pnode({
 }, nin=0, nout=1);
 
 local graph = g.pipeline([depo_source, setdrifter, bi_manifold, retagger, sio_sinks]);
-local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellRoot", "WireCellGenKokkos"];
+local plugins = [ "WireCellSio", "WireCellGen", "WireCellSigProc","WireCellApps", "WireCellPgraph", "WireCellTbb", "WireCellGenKokkos"];
 
 // Pgrapher or TbbFlow
 local engine = "Pgrapher";
