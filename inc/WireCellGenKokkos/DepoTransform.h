@@ -7,6 +7,7 @@
 #include "WireCellIface/IDepoFramer.h"
 #include "WireCellIface/IConfigurable.h"
 #include "WireCellIface/IRandom.h"
+#include "WireCellIface/IDFT.h"
 #include "WireCellIface/IPlaneImpactResponse.h"
 #include "WireCellIface/IAnodePlane.h"
 #include "WireCellIface/WirePlaneId.h"
@@ -34,6 +35,7 @@ namespace WireCell {
            private:
             IAnodePlane::pointer m_anode;
             IRandom::pointer m_rng;
+            IDFT::pointer m_dft;
             std::vector<IPlaneImpactResponse::pointer> m_pirs;
 
             double m_start_time;
