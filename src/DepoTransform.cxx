@@ -41,8 +41,10 @@
 #include "WireCellGenKokkos/ImpactTransform.h"
 #include "WireCellUtil/NamedFactory.h"
 #include "WireCellIface/IAnodePlane.h"
-#include "WireCellAux/SimpleTrace.h"
-#include "WireCellAux/SimpleFrame.h"
+// #include "WireCellAux/SimpleTrace.h"
+// #include "WireCellAux/SimpleFrame.h"
+#include "WireCellIface/SimpleTrace.h"
+#include "WireCellIface/SimpleFrame.h"
 #include "WireCellGenKokkos/BinnedDiffusion_transform.h"
 #include "WireCellUtil/Units.h"
 #include "WireCellUtil/Point.h"
@@ -55,8 +57,8 @@ WIRECELL_FACTORY(GenKokkosDepoTransform, WireCell::GenKokkos::DepoTransform, Wir
 
 using namespace WireCell;
 using namespace std;
-using WireCell::Aux::SimpleTrace;
-using WireCell::Aux::SimpleFrame;
+// using WireCell::Aux::SimpleTrace;
+// using WireCell::Aux::SimpleFrame;
 
 GenKokkos::DepoTransform::DepoTransform()
   : m_start_time(0.0 * units::ns)
